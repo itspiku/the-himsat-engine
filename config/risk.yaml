@@ -1,0 +1,89 @@
+# HimSat risk model configuration (reviewed like code; bump model_version on any change).
+#
+# hazard   = 1 - Π(1 - w_i · s_i)        noisy-OR over indicators; s_i = ramp(x_i) in 0..1
+# exposure = 1 - exp(-E / scale),  E = Σ_assets weight(kind) · exp(-arrival_min / time_decay_min)
+# score    = hazard · (exposure_floor + (1 - exposure_floor) · exposure)
+# level    = high if score ≥ levels.high, medium if ≥ levels.medium, else low
+#
+# Alerts additionally require *observed change*: the noisy-OR of the dynamic indicators (growth,
+# acceleration, fractures, fresh scars, turbidity, barrier) must reach 0.15. Static-only "medium"
+# sites are shown on the map as potentially dangerous, but they don't trigger warnings.
+#
+# Noisy-OR lets independent lines of evidence reinforce each other. A single decisive
+# signal (e.g. 4× glacier acceleration) can reach a high hazard on its own. Static
+# susceptibility (a large lake touching a glacier under steep walls) is capped at about
+# "medium": only observed change (growth, acceleration, fractures, fresh scars) raises a site to "high".
+
+model_version: "2026.10-4"
+
+levels:
+  high: 0.60
+  medium: 0.35
+exposure_floor: 0.40
+# A HIGH result with confidence below this is issued as MEDIUM and flagged "needs confirmation",
+# which sends it to duty-officer review instead of automatic dispatch.
+min_confidence_for_high: 0.30
+
+flow:
+  max_distance_km: 150
+  # flood-front speed used for arrival-time estimates (earliest plausible arrival)
+  wave_speed_m_s:
+    glacial_lake: 8.0      # GLOF / outburst flood
+    barrier_lake: 8.0
+    glacier: 25.0          # ice / rock-ice avalanche → debris-flow cascade
+    slope: 25.0
+    landslide: 10.0
+  corridor_max_offset_m: 1500
+  height_max_near_m: 60
+  height_min_far_m: 15
+  height_decay_m_per_km: 0.5
+
+exposure:
+  scale: 12.0
+  time_decay_min: 180
+  weights:
+    town: 8
+    settlement: 3
+    hydropower: 6
+    dam: 3
+    border_crossing: 5
+    bridge: 1.5
+    school: 3
+    health: 3
+    tourism: 1.5
+    police: 1
+    government: 1
+
+# Indicator ramps: x = [x_at_score_0, x_at_score_1] (either order), w = maximum contribution.
+indicators:
+  # --- glacial & barrier lakes -----------------------------------------------------------
+  lake_area_km2:          {x: [0.02, 0.60], w: 0.35, kinds: [glacial_lake, barrier_lake]}
+  # gate: the indicator's score is multiplied by the gating indicator's score (at least `floor`):
+  # a tiny pond touching ice under steep walls cannot produce a large outburst flood.
+  lake_growth_recent_pct: {x: [5, 30],      w: 0.55, kinds: [glacial_lake, barrier_lake], gate: {by: lake_area_km2, floor: 0.3}}
+  lake_growth_annual_pct: {x: [5, 50],      w: 0.30, kinds: [glacial_lake], gate: {by: lake_area_km2, floor: 0.3}}
+  glacier_contact_m:      {x: [1000, 50],   w: 0.25, kinds: [glacial_lake], gate: {by: lake_area_km2}}   # distance to ice
+  steep_walls_deg:        {x: [25, 45],     w: 0.25, kinds: [glacial_lake, barrier_lake], gate: {by: lake_area_km2}}
+  turbidity_rise:         {x: [0.10, 0.50], w: 0.20, kinds: [glacial_lake], gate: {by: lake_area_km2, floor: 0.3}}
+  barrier_lake:           {x: [0, 1],       w: 0.80, kinds: [barrier_lake]}               # landslide-dammed river
+  # --- glaciers & ice/rock slopes -------------------------------------------------------
+  velocity_ratio:         {x: [1.5, 4.0],   w: 0.70, kinds: [glacier, slope]}   # recent / baseline speed
+  velocity_steep_m_day:   {x: [0.3, 2.0],   w: 0.40, kinds: [glacier, slope]}   # fast ice on steep ground
+  velocity_trend:         {x: [2, 4],       w: 0.30, kinds: [glacier, slope]}   # consecutive speed-ups
+  new_fractures_m:        {x: [100, 1000],  w: 0.50, kinds: [glacier, slope]}
+  sar_change_km2:         {x: [0.10, 0.60], w: 0.50, kinds: [glacier, slope, glacial_lake]}  # cross-orbit confirmed only
+  source_slope_deg:       {x: [25, 40],     w: 0.20, kinds: [glacier, slope]}
+  # --- landslides ------------------------------------------------------------------------
+  landslide_area_km2:     {x: [0.05, 0.60], w: 0.60, kinds: [landslide]}  # fresh (<= event_days), cross-orbit confirmed
+
+windows:
+  recent_days: 16          # "now" evidence window
+  compare_days: [20, 75]   # "about a month ago" window for lake growth
+  annual_days: [330, 400]  # "same season last year"
+  velocity_baseline_days: [30, 150]   # excludes the last month so slow onsets are not absorbed
+  velocity_min_z: 3.0
+  velocity_min_baseline_pairs: 3
+  event_days: 30           # recent fractures / SAR change
+
+quality:
+  min_lake_quality: 0.80   # min fraction of lake surroundings observable to trust an area
