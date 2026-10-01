@@ -1,0 +1,125 @@
+{
+ "best_val_miou": 0.7010239385984466,
+ "history": [
+  {
+   "epoch": 1,
+   "loss": 0.7274886636979996,
+   "val_miou": 0.5869440586997438,
+   "val_iou": {
+    "other": 0.7817,
+    "water": 0.4301,
+    "snow_ice": 0.8924,
+    "debris_ice": 0.2436
+   },
+   "seconds": 285.1
+  },
+  {
+   "epoch": 2,
+   "loss": 0.415372797657573,
+   "val_miou": 0.6196397052501764,
+   "val_iou": {
+    "other": 0.8444,
+    "water": 0.457,
+    "snow_ice": 0.9078,
+    "debris_ice": 0.2693
+   },
+   "seconds": 178.4
+  },
+  {
+   "epoch": 3,
+   "loss": 0.33756202341072145,
+   "val_miou": 0.6274281772969506,
+   "val_iou": {
+    "other": 0.8304,
+    "water": 0.5102,
+    "snow_ice": 0.9155,
+    "debris_ice": 0.2537
+   },
+   "seconds": 176.9
+  },
+  {
+   "epoch": 4,
+   "loss": 0.27841835078738986,
+   "val_miou": 0.6895043522226603,
+   "val_iou": {
+    "other": 0.8755,
+    "water": 0.5674,
+    "snow_ice": 0.9198,
+    "debris_ice": 0.3954
+   },
+   "seconds": 294.0
+  },
+  {
+   "epoch": 5,
+   "loss": 0.24109293958024372,
+   "val_miou": 0.6780315929306721,
+   "val_iou": {
+    "other": 0.8881,
+    "water": 0.5014,
+    "snow_ice": 0.9251,
+    "debris_ice": 0.3976
+   },
+   "seconds": 207.7
+  },
+  {
+   "epoch": 6,
+   "loss": 0.21031394695478772,
+   "val_miou": 0.6665846208413218,
+   "val_iou": {
+    "other": 0.8888,
+    "water": 0.5298,
+    "snow_ice": 0.9283,
+    "debris_ice": 0.3194
+   },
+   "seconds": 40.9
+  },
+  {
+   "epoch": 7,
+   "loss": 0.19402474779931325,
+   "val_miou": 0.6858482579935156,
+   "val_iou": {
+    "other": 0.8895,
+    "water": 0.565,
+    "snow_ice": 0.9284,
+    "debris_ice": 0.3605
+   },
+   "seconds": 36.4
+  },
+  {
+   "epoch": 8,
+   "loss": 0.17726296127315552,
+   "val_miou": 0.7010239385984466,
+   "val_iou": {
+    "other": 0.895,
+    "water": 0.6101,
+    "snow_ice": 0.9308,
+    "debris_ice": 0.3681
+   },
+   "seconds": 34.7
+  },
+  {
+   "epoch": 9,
+   "loss": 0.1717712518478197,
+   "val_miou": 0.6986591175359865,
+   "val_iou": {
+    "other": 0.898,
+    "water": 0.562,
+    "snow_ice": 0.9315,
+    "debris_ice": 0.4032
+   },
+   "seconds": 53.6
+  },
+  {
+   "epoch": 10,
+   "loss": 0.16981323583731575,
+   "val_miou": 0.6995381874803035,
+   "val_iou": {
+    "other": 0.8946,
+    "water": 0.5697,
+    "snow_ice": 0.93,
+    "debris_ice": 0.4038
+   },
+   "seconds": 34.7
+  }
+ ]
+}

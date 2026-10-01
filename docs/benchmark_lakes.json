@@ -1,0 +1,54 @@
+[
+ {
+  "lake": "Gosainkunda",
+  "published_km2": 0.138,
+  "scene": "S2_S2A_20251204T0452_R076",
+  "rules": 0.1058,
+  "rules_err_pct": -23.3,
+  "prithvi": 0.1258,
+  "prithvi_err_pct": -8.8,
+  "rules+sam": 0.1243,
+  "rules+sam_err_pct": -9.9,
+  "prithvi+sam": 0.1233,
+  "prithvi+sam_err_pct": -10.7
+ },
+ {
+  "lake": "Tsho Rolpa",
+  "published_km2": 1.55,
+  "scene": "S2_S2B_20251117T0449_R076",
+  "rules": 1.5894,
+  "rules_err_pct": 2.5,
+  "prithvi": 1.7606,
+  "prithvi_err_pct": 13.6,
+  "rules+sam": 1.6165,
+  "rules+sam_err_pct": 4.3,
+  "prithvi+sam": 1.6163,
+  "prithvi+sam_err_pct": 4.3
+ },
+ {
+  "lake": "Imja Tsho",
+  "published_km2": 1.3,
+  "scene": "S2_S2B_20251117T0449_R076",
+  "rules": 1.2159,
+  "rules_err_pct": -6.5,
+  "prithvi": 1.4714,
+  "prithvi_err_pct": 13.2,
+  "rules+sam": 1.2663,
+  "rules+sam_err_pct": -2.6,
+  "prithvi+sam": 1.4161,
+  "prithvi+sam_err_pct": 8.9
+ },
+ {
+  "lake": "Thulagi (Dona)",
+  "published_km2": 0.95,
+  "scene": "S2_S2C_20251026T0459_R119",
+  "rules": 0.7779,
+  "rules_err_pct": -18.1,
+  "prithvi": 0.8873,
+  "prithvi_err_pct": -6.6,
+  "rules+sam": 0.7836,
+  "rules+sam_err_pct": -17.5,
+  "prithvi+sam": 0.7857,
+  "prithvi+sam_err_pct": -17.3
+ }
+]
