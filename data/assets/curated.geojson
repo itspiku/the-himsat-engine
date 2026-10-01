@@ -1,0 +1,14 @@
+{
+  "type": "FeatureCollection",
+  "note": "Critical infrastructure that is missing from or ambiguous in OpenStreetMap. Coordinates are APPROXIMATE (within ~1 km) and were compiled from public reporting on the 2025/2026 Rasuwa floods. Operators should replace them with surveyed coordinates before operational use. at_channel=true means the asset sits on the river (headworks, bridges), so its height above the channel is taken as 0 m.",
+  "features": [
+    {"type": "Feature", "geometry": {"type": "Point", "coordinates": [85.3787, 28.2790]},
+     "properties": {"external_id": "curated:rasuwagadhi-border", "kind": "border_crossing", "name": "Rasuwagadhi–Kerung border crossing (Friendship Bridge)", "name_ne": "रसुवागढी–केरुङ नाका (मैत्री पुल)", "at_channel": true, "approximate": true}},
+    {"type": "Feature", "geometry": {"type": "Point", "coordinates": [85.3765, 28.2700]},
+     "properties": {"external_id": "curated:rasuwagadhi-hep-headworks", "kind": "hydropower", "name": "Rasuwagadhi Hydropower (111 MW) headworks", "name_ne": "रसुवागढी जलविद्युत आयोजना (१११ मेगावाट) हेडवर्क्स", "at_channel": true, "approximate": true}},
+    {"type": "Feature", "geometry": {"type": "Point", "coordinates": [85.3745, 28.2605]},
+     "properties": {"external_id": "curated:timure", "kind": "settlement", "name": "Timure (dry port & customs)", "name_ne": "टिमुरे (सुक्खा बन्दरगाह र भन्सार)", "approximate": true}},
+    {"type": "Feature", "geometry": {"type": "Point", "coordinates": [85.3000, 28.1865]},
+     "properties": {"external_id": "curated:chilime-headworks", "kind": "hydropower", "name": "Chilime / Sanjen hydropower headworks", "name_ne": "चिलिमे / सान्जेन जलविद्युत हेडवर्क्स", "at_channel": true, "approximate": true}}
+  ]
+}
