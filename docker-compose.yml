@@ -1,0 +1,52 @@
+# Production-style stack: PostgreSQL, API + public map, monitoring worker, optional local LLM.
+#   cp .env.example .env   # set secrets
+#   docker compose up -d
+#   docker compose --profile llm up -d   # also start Ollama (then: docker compose exec ollama ollama pull qwen2.5:7b-instruct)
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: himsat
+      POSTGRES_USER: himsat
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U himsat"]
+      interval: 10s
+      retries: 10
+    restart: unless-stopped
+
+  api:
+    build: .
+    image: himsat:latest
+    env_file: .env
+    environment:
+      HIMSAT_DATABASE_URL: postgresql+psycopg://himsat:${POSTGRES_PASSWORD}@db:5432/himsat
+    volumes: [himsat-data:/data, ./models:/models:ro]
+    ports: ["8000:8000"]
+    depends_on: { db: { condition: service_healthy } }
+    restart: unless-stopped
+
+  worker:
+    image: himsat:latest
+    env_file: .env
+    environment:
+      HIMSAT_DATABASE_URL: postgresql+psycopg://himsat:${POSTGRES_PASSWORD}@db:5432/himsat
+    command: ["himsat", "watch", "rasuwa-trishuli", "rolwaling-tamakoshi", "khumbu-dudhkoshi", "manaslu-marsyangdi"]
+    volumes: [himsat-data:/data, ./models:/models:ro]
+    depends_on: { db: { condition: service_healthy }, api: { condition: service_started } }
+    restart: unless-stopped
+    healthcheck: { disable: true }
+
+  ollama:
+    image: ollama/ollama:latest
+    profiles: ["llm"]
+    volumes: [ollama:/root/.ollama]
+    restart: unless-stopped
+    # GPU: uncomment on hosts with the NVIDIA container toolkit
+    # deploy: { resources: { reservations: { devices: [{ driver: nvidia, count: 1, capabilities: [gpu] }] } } }
+
+volumes:
+  pgdata:
+  himsat-data:
+  ollama:
