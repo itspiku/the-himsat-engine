@@ -1,0 +1,46 @@
+# Areas of interest (AOIs) monitored by HimSat.
+#
+# bbox           lon/lat [west, south, east, north] of the monitored catchment. Each box is
+#                catchment-based and includes transboundary headwaters.
+# exposure_bbox  a larger box used for downstream flow routing and asset exposure. It must reach far
+#                enough downstream to cover the settlements and hydropower plants that need warnings.
+#
+# Adding an AOI takes only a new entry here, then `himsat aoi init <id>`.
+
+aois:
+  - id: rasuwa-trishuli
+    name: Rasuwa – Upper Trishuli / Bhote Koshi catchment
+    name_ne: रसुवा – माथिल्लो त्रिशूली / भोटेकोशी जलाधार
+    code_prefix: RSW
+    bbox: [85.10, 28.05, 85.80, 28.95]
+    exposure_bbox: [84.70, 27.70, 85.85, 29.00]
+
+  # Focus AOI used for the 26 August 2026 hindcast. It covers the Lhende Khola source zone
+  # (~28.29N 85.53E), Langtang valley, Rasuwagadhi, Timure, Syabrubesi and Chilime.
+  - id: rasuwa-lhende
+    name: Rasuwa – Lhende Khola & Langtang (hindcast focus)
+    name_ne: रसुवा – लेन्डे खोला र लाङटाङ
+    code_prefix: LHD
+    bbox: [85.30, 28.12, 85.72, 28.42]
+    exposure_bbox: [84.70, 27.70, 85.85, 28.60]
+
+  - id: rolwaling-tamakoshi
+    name: Rolwaling – Tamakoshi (Tsho Rolpa)
+    name_ne: रोल्वालिङ – तामाकोशी (छो रोल्पा)
+    code_prefix: RLW
+    bbox: [86.25, 27.78, 86.62, 28.00]
+    exposure_bbox: [85.95, 27.35, 86.65, 28.05]
+
+  - id: khumbu-dudhkoshi
+    name: Khumbu – Dudh Koshi (Imja Tsho)
+    name_ne: खुम्बु – दूधकोशी (इम्जा छो)
+    code_prefix: KHB
+    bbox: [86.62, 27.80, 87.05, 28.05]
+    exposure_bbox: [86.45, 27.20, 87.10, 28.10]
+
+  - id: manaslu-marsyangdi
+    name: Manaslu – Marsyangdi (Thulagi)
+    name_ne: मनास्लु – मर्स्याङ्दी (थुलागी)
+    code_prefix: MRS
+    bbox: [84.30, 28.40, 84.65, 28.70]
+    exposure_bbox: [84.20, 27.90, 84.70, 28.75]
