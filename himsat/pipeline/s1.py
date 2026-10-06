@@ -44,6 +44,7 @@ log = logging.getLogger(__name__)
 HOTSPOT_MIN_NODES = 6
 HOTSPOT_MIN_V = 1.0  # m/day, downslope
 HOTSPOT_MIN_RATIO = 3.0
+HOTSPOT_MIN_CORR = 0.2
 EVENT_MIN_AREA = 50_000.0  # m²: smaller backscatter changes are not recorded
 ATTACH_MIN_AREA = 100_000.0  # m²: and must be this large / confident to count as evidence at a site
 ATTACH_MIN_CONF = 0.7
@@ -351,8 +352,15 @@ def _hotspots(session: Session, ctx: AOIContext, tile: Tile, st, vf, nmad: float
         geom = reproject_geom(hull, tile.grid.epsg, 4326)
         ratio = float(np.median(now[rr, cc] / np.maximum(base[rr, cc], 0.05)))
         v = float(np.median(now[rr, cc]))
+        corr = float(np.nanmean(vf.corr[rr, cc]))
+        if corr < HOTSPOT_MIN_CORR:
+            continue  # decorrelated (wet snow, vegetation, layover): offsets are not trustworthy
         site = inv.match_site(session, ctx.cfg.id, geom, ("slope",), buffer_deg=0.002)
         if site is None:
+            # a new fast-moving area must be seen from two independent viewing geometries
+            ev = _hotspot_event(session, ctx, geom, hull.area, acq, v, ratio, corr)
+            if _confirming_event(session, ctx, ev, acq, kind="velocity_hotspot") is None:
+                continue
             rows_px = np.clip(prow, 0, st.dem.shape[0] - 1)
             cols_px = np.clip(pcol, 0, st.dem.shape[1] - 1)
             k = int(np.argmin(st.dem[rows_px, cols_px]))
@@ -378,6 +386,22 @@ def _hotspots(session: Session, ctx: AOIContext, tile: Tile, st, vf, nmad: float
     return n
 
 
+def _hotspot_event(session: Session, ctx: AOIContext, geom, area_m2: float, acq: Acquisition, v: float,
+                   ratio: float, corr: float):
+    from himsat.db.models import ChangeEvent
+    from himsat.geo.geometry import set_geom
+
+    c = geom.centroid
+    ev = ChangeEvent(aoi_id=ctx.cfg.id, kind="velocity_hotspot", sensor="S1", detected_at=acq.datetime,
+                     lon=c.x, lat=c.y, area_m2=float(area_m2), confidence=min(1.0, corr * 2),
+                     attrs={"orbit": acq.relative_orbit, "v_m_day": v, "ratio": ratio, "mean_corr": corr},
+                     scene_key=acq.key)
+    set_geom(ev, geom)
+    session.add(ev)
+    session.flush()
+    return ev
+
+
 def _overlapping_events(session: Session, ctx: AOIContext, ev, since: datetime, until: datetime):
     from himsat.db.models import ChangeEvent
     from himsat.geo.geometry import from_geojson
@@ -400,16 +424,18 @@ def _overlapping_events(session: Session, ctx: AOIContext, ev, since: datetime, 
 
 
 def _after_wet_snow(session: Session, ctx: AOIContext, ev, acq: Acquisition, days: int = 45) -> bool:
-    return any((o.attrs or {}).get("snow_like") for o in _overlapping_events(
+    return any(o.kind == "mass_movement" and (o.attrs or {}).get("snow_like") for o in _overlapping_events(
         session, ctx, ev, acq.datetime - timedelta(days=days), acq.datetime))
 
 
-def _confirming_event(session: Session, ctx: AOIContext, ev, acq: Acquisition, days: int = 15):
+def _confirming_event(session: Session, ctx: AOIContext, ev, acq: Acquisition, days: int = 15,
+                      kind: str = "mass_movement"):
     """A prior strong change from a *different* relative orbit overlapping this one (within ``days``)."""
     for other in _overlapping_events(session, ctx, ev, acq.datetime - timedelta(days=days), acq.datetime):
         a = other.attrs or {}
-        if (a.get("orbit") == acq.relative_orbit or a.get("disturbed") or a.get("snow_like")
-                or other.area_m2 < ATTACH_MIN_AREA * 0.5):
+        if other.kind != kind or a.get("orbit") == acq.relative_orbit or a.get("disturbed") or a.get("snow_like"):
+            continue
+        if kind == "mass_movement" and other.area_m2 < ATTACH_MIN_AREA * 0.5:
             continue
         return other
     return None
