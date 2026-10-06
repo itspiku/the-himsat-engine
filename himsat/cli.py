@@ -395,6 +395,15 @@ def admin_check() -> None:
     raise typer.Exit(0 if ok else 1)
 
 
+@admin_app.command("prune")
+def admin_prune(cache_days: float = 120, velocity_days: float = 400,
+                dry_run: bool = typer.Option(False, "--dry-run")) -> None:
+    """Delete old raster cache and velocity fields (run from cron, e.g. weekly)."""
+    from himsat.maintenance import prune
+
+    console.print(prune(cache_days=cache_days, velocity_days=velocity_days, dry_run=dry_run))
+
+
 # --- InSAR ---------------------------------------------------------------------------------------
 insar_app = typer.Typer(help="InSAR via ASF HyP3 (needs HIMSAT_EARTHDATA_USERNAME/PASSWORD)", no_args_is_help=True)
 app.add_typer(insar_app, name="insar")
