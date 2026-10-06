@@ -1,0 +1,64 @@
+# Example alert roster for the Rasuwa – Trishuli corridor. ALL CONTACTS ARE PLACEHOLDERS.
+# Copy to subscribers.yaml (not committed), fill in real focal points, replace the bounding boxes
+# with official municipality boundary polygons (area: boundaries/<name>.geojson), then:
+#   himsat subscribers import config/subscribers.yaml
+# A subscriber receives an alert when the site OR any exposed downstream asset lies in its area.
+subscribers:
+  - name: Gosaikunda Rural Municipality – disaster focal point
+    org_type: municipality
+    language: ne
+    phone: "+9779800000001"
+    channels: [sms]
+    min_level: medium
+    bbox: [85.28, 28.10, 85.75, 28.40]
+  - name: Aamachhodingmo Rural Municipality – disaster focal point
+    org_type: municipality
+    language: ne
+    phone: "+9779800000002"
+    channels: [sms]
+    min_level: medium
+    bbox: [85.25, 28.13, 85.36, 28.30]
+  - name: Uttargaya Rural Municipality – disaster focal point
+    org_type: municipality
+    language: ne
+    phone: "+9779800000003"
+    channels: [sms]
+    min_level: medium
+    bbox: [85.15, 27.98, 85.30, 28.12]
+  - name: Bidur Municipality (Nuwakot) – disaster focal point
+    org_type: municipality
+    language: ne
+    phone: "+9779800000004"
+    channels: [sms]
+    min_level: medium
+    bbox: [85.08, 27.85, 85.22, 27.97]
+  - name: District Disaster Management Committee, Rasuwa
+    org_type: drr_authority
+    language: both
+    phone: "+9779800000005"
+    email: ddmc-rasuwa@example.org
+    channels: [sms, email]
+    min_level: medium
+    aoi_ids: [rasuwa-trishuli, rasuwa-lhende]
+  - name: NDRRMA National Emergency Operation Centre
+    org_type: drr_authority
+    language: both
+    email: neoc@example.org
+    webhook_url: https://neoc.example.org/himsat/webhook
+    channels: [email, webhook]
+    min_level: medium
+  - name: Upper Trishuli / Rasuwagadhi hydropower operations desk
+    org_type: hydropower
+    language: both
+    phone: "+9779800000006"
+    webhook_url: https://ops.example.org/himsat
+    channels: [sms, webhook]
+    min_level: medium
+    bbox: [85.15, 27.98, 85.40, 28.30]
+  - name: Langtang lodge association
+    org_type: tourism
+    language: both
+    phone: "+9779800000007"
+    channels: [sms]
+    min_level: high
+    bbox: [85.30, 28.13, 85.75, 28.25]
