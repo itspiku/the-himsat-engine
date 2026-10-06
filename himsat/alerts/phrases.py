@@ -93,6 +93,10 @@ REASON = {
                        "ne": "राडार तस्बिरमा {v} वर्ग कि.मि. क्षेत्रमा सतहमा नयाँ हलचल देखिएको छ"},
     "source_slope_deg": {"en": "The source area is very steep ({v}°)", "ne": "स्रोत क्षेत्र निकै ठाडो छ ({v}°)"},
     "landslide_area_km2": {"en": "Active landslide area of {v} km²", "ne": "सक्रिय पहिरो क्षेत्र {v} वर्ग कि.मि."},
+    "insar_ratio": {"en": "Radar interferometry shows the slope deforming {v}× faster than before",
+                    "ne": "राडार इन्टरफेरोमेट्रीले भिर पहिलेभन्दा {v} गुणा छिटो विकृत भइरहेको देखाएको छ"},
+    "insar_mm_month": {"en": "Radar interferometry measures about {v} mm of movement per month",
+                       "ne": "राडार इन्टरफेरोमेट्रीले मासिक करिब {v} मिलिमिटर सराइ मापन गरेको छ"},
 }
 
 ACTION = {
@@ -147,7 +151,7 @@ def reason_text(code: str, value: float, lang: str) -> str:
         return code
     if code == "velocity_trend":
         v = fmt_num(int(round(value)), lang, 0)
-    elif code in ("lake_growth_recent_pct", "lake_growth_annual_pct"):
+    elif code in ("lake_growth_recent_pct", "lake_growth_annual_pct", "insar_mm_month"):
         v = fmt_num(value, lang, 0)
     elif code == "turbidity_rise":
         v = fmt_num(value * 100.0, lang, 0)

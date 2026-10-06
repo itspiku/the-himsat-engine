@@ -138,6 +138,7 @@ def ice_features(obs: list[Obs], as_of: datetime, cfg: dict, attrs: dict) -> tup
         key=lambda o: o.observed_at)
     _event_features(obs, as_of, w, feats)
     if not vel:
+        _insar_features(obs, as_of, w, feats)
         return feats, 0.15
     recent = [o for o in vel if _in_window(o, as_of, 0, w["recent_days"])]
     lo, hi = w["velocity_baseline_days"]
@@ -165,9 +166,31 @@ def ice_features(obs: list[Obs], as_of: datetime, cfg: dict, attrs: dict) -> tup
                 else:
                     break
             feats["velocity_trend"] = float(run) if significant else 0.0
+    _insar_features(obs, as_of, w, feats)
     cov = sum(o.values.get("coverage", 0) for o in recent) / len(recent) if recent else 0.0
     conf = 0.2 + (0.3 if recent else 0.0) + (0.3 if wb is not None else 0.0) + 0.2 * cov
     return feats, min(conf, 1.0)
+
+
+INSAR_MIN_V = 0.0005  # m/day (~15 mm/month) before an InSAR speed-up can count
+INSAR_RATIO_FLOOR = 0.0003  # m/day (~10 mm/month)
+
+
+def _insar_features(obs: list[Obs], as_of: datetime, w: dict, feats: dict) -> None:
+    """mm-scale line-of-sight motion from interferometry (optional HyP3 products)."""
+    ins = [o for o in obs if o.kind == "insar_los" and o.observed_at <= as_of and o.values.get("coverage", 0) >= 0.3]
+    recent = [o for o in ins if _in_window(o, as_of, 0, 2 * w["recent_days"])]
+    lo, hi = w["velocity_baseline_days"]
+    base = [o for o in ins if _in_window(o, as_of, lo, hi)]
+    if not recent or len(base) < 2:
+        return
+    wr = weighted_mean([o.values["v_los_m_day"] for o in recent], [o.values["v_los_se"] for o in recent], min_se=1e-6)
+    wb = weighted_mean([o.values["v_los_m_day"] for o in base], [o.values["v_los_se"] for o in base], min_se=1e-6)
+    (vr, sr), (vb, sb) = wr, wb
+    z = abs(vr - vb) / math.hypot(sr, sb)
+    feats["insar_mm_month"] = abs(vr) * 30_000
+    if z >= w.get("velocity_min_z", 3.0) and abs(vr) >= INSAR_MIN_V:
+        feats["insar_ratio"] = abs(vr) / max(abs(vb), INSAR_RATIO_FLOOR)
 
 
 def landslide_features(obs: list[Obs], as_of: datetime, cfg: dict, attrs: dict) -> tuple[dict, float]:

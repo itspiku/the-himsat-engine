@@ -17,7 +17,8 @@ def load_risk_config() -> dict[str, Any]:
 
 # indicators that measure change over time (vs. static susceptibility such as size or steepness)
 DYNAMIC = {"lake_growth_recent_pct", "lake_growth_annual_pct", "turbidity_rise", "barrier_lake", "velocity_ratio",
-           "velocity_trend", "velocity_steep_m_day", "new_fractures_m", "sar_change_km2", "landslide_area_km2"}
+           "velocity_trend", "velocity_steep_m_day", "new_fractures_m", "sar_change_km2", "landslide_area_km2",
+           "insar_ratio", "insar_mm_month"}
 ALERT_MIN_DYNAMIC = 0.15
 
 

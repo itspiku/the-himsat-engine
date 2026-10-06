@@ -14,7 +14,7 @@
 # susceptibility (a large lake touching a glacier under steep walls) is capped at about
 # "medium": only observed change (growth, acceleration, fractures, fresh scars) raises a site to "high".
 
-model_version: "2026.10-4"
+model_version: "2026.10-5"
 
 levels:
   high: 0.60
@@ -73,6 +73,9 @@ indicators:
   new_fractures_m:        {x: [100, 1000],  w: 0.50, kinds: [glacier, slope]}
   sar_change_km2:         {x: [0.10, 0.60], w: 0.50, kinds: [glacier, slope, glacial_lake]}  # cross-orbit confirmed only
   source_slope_deg:       {x: [25, 40],     w: 0.20, kinds: [glacier, slope]}
+  # InSAR (optional HyP3 products): mm-scale line-of-sight motion and its significance-gated speed-up
+  insar_ratio:            {x: [2.0, 5.0],   w: 0.55, kinds: [glacier, slope]}
+  insar_mm_month:         {x: [30, 150],    w: 0.25, kinds: [glacier, slope]}
   # --- landslides ------------------------------------------------------------------------
   landslide_area_km2:     {x: [0.05, 0.60], w: 0.60, kinds: [landslide]}  # fresh (<= event_days), cross-orbit confirmed
 
