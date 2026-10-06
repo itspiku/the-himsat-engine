@@ -384,6 +384,43 @@ def admin_check() -> None:
     raise typer.Exit(0 if ok else 1)
 
 
+# --- InSAR ---------------------------------------------------------------------------------------
+insar_app = typer.Typer(help="InSAR via ASF HyP3 (needs HIMSAT_EARTHDATA_USERNAME/PASSWORD)", no_args_is_help=True)
+app.add_typer(insar_app, name="insar")
+
+
+@insar_app.command("pairs")
+def insar_pairs(aoi_id: str, start: str = typer.Option(...), end: str = typer.Option(None)) -> None:
+    """List Sentinel-1 SLC pairs HimSat would process (no login needed)."""
+    from himsat.config import get_aoi
+    from himsat.ingest import insar
+
+    cfg = get_aoi(aoi_id)
+    pairs = insar.find_pairs(insar.search_slc(cfg, parse_date(start), parse_date(end) if end else datetime.now(UTC)))
+    t = Table("orbit", "reference", "secondary", "days")
+    for a, b in pairs:
+        t.add_row(str(a.relative_orbit), a.name, b.name, f"{(b.start - a.start).days}")
+    console.print(t)
+
+
+@insar_app.command("run")
+def insar_run(aoi_id: str, start: str = typer.Option(...), end: str = typer.Option(None)) -> None:
+    """Submit new InSAR jobs and ingest finished products into the live database."""
+    from himsat.alerts.llm import LLMClient
+    from himsat.config import get_aoi
+    from himsat.db.session import init_db
+    from himsat.pipeline.assess import Assessor
+    from himsat.pipeline.context import AOIContext
+    from himsat.pipeline.monitor import CycleOptions, CycleResult, run_insar
+
+    s = get_settings()
+    init_db()
+    ctx = AOIContext(get_aoi(aoi_id), s)
+    stats = run_insar(ctx, None, parse_date(start), parse_date(end) if end else datetime.now(UTC),
+                      Assessor(ctx, s, LLMClient.from_settings(s)), CycleOptions(), CycleResult(), console.print)
+    console.print(stats)
+
+
 # --- ML ------------------------------------------------------------------------------------------
 @ml_app.command("build-dataset")
 def ml_build_dataset(aois: str = typer.Option("rasuwa-trishuli,rolwaling-tamakoshi,khumbu-dudhkoshi,manaslu-marsyangdi"),
