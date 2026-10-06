@@ -20,6 +20,7 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import numpy as np
+from rasterio.errors import RasterioIOError
 from shapely.geometry import shape
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -38,6 +39,7 @@ from himsat.pipeline.s2 import process_s2
 from himsat.sites import inventory as inv
 
 log = logging.getLogger(__name__)
+SCENE_ATTEMPTS = 3
 
 
 @dataclass
@@ -165,31 +167,42 @@ def run_cycle(aoi_id: str, opts: CycleOptions | None = None, db_url: str | None 
     say(f"{len(todo)} acquisitions to process ({sum(a.sensor == 'S1' for a in todo)} S1, "
         f"{sum(a.sensor == 'S2' for a in todo)} S2)")
 
+    def process_one(acq: Acquisition) -> dict:
+        with session_scope(db_url) as session:
+            touched: set[int] = set()
+            if acq.sensor == "S2":
+                stats = process_s2(session, ctx, acq, segmenter, named, touched)
+            else:
+                refs = find_references(acq, s1_all, cfg.s1_max_pair_days)
+                stats = process_s1(session, ctx, acq, refs, named, touched)
+                stats["references"] = len(refs)
+            scene = session.scalars(select(Scene).where(Scene.aoi_id == cfg.id, Scene.sensor == acq.sensor,
+                                                        Scene.key == acq.key)).one()
+            scene.status = "processed" if stats.get("tiles") else "skipped"
+            scene.stats, scene.processed_at = stats, utcnow()
+            now = acq.datetime + opts.data_latency if opts.hindcast else utcnow()
+            for sid in sorted(touched):
+                site = session.get(Site, sid)
+                _, alert = assessor.assess(session, site, as_of=acq.datetime, now=now)
+                if alert is not None:
+                    res.alerts.append(alert.id)
+        return stats
+
     for i, acq in enumerate(todo, 1):
         t0 = datetime.now(UTC)
         try:
-            with session_scope(db_url) as session:
-                touched: set[int] = set()
-                if acq.sensor == "S2":
-                    stats = process_s2(session, ctx, acq, segmenter, named, touched)
-                else:
-                    refs = find_references(acq, s1_all, cfg.s1_max_pair_days)
-                    stats = process_s1(session, ctx, acq, refs, named, touched)
-                    stats["references"] = len(refs)
-                scene = session.scalars(select(Scene).where(Scene.aoi_id == cfg.id, Scene.sensor == acq.sensor,
-                                                            Scene.key == acq.key)).one()
-                scene.status = "processed" if stats.get("tiles") else "skipped"
-                scene.stats, scene.processed_at = stats, utcnow()
-                now = acq.datetime + opts.data_latency if opts.hindcast else utcnow()
-                for sid in sorted(touched):
-                    site = session.get(Site, sid)
-                    _, alert = assessor.assess(session, site, as_of=acq.datetime, now=now)
-                    if alert is not None:
-                        res.alerts.append(alert.id)
-                if stats.get("tiles"):
-                    res.scenes_processed += 1
-                else:
-                    res.scenes_skipped += 1
+            for attempt in range(1, SCENE_ATTEMPTS + 1):
+                try:
+                    stats = process_one(acq)
+                    break
+                except (RasterioIOError, OSError) as e:  # transient remote-read failure: retry the scene
+                    if attempt == SCENE_ATTEMPTS:
+                        raise
+                    log.warning("scene %s attempt %d failed (%s); retrying", acq.key, attempt, e)
+            if stats.get("tiles"):
+                res.scenes_processed += 1
+            else:
+                res.scenes_skipped += 1
             say(f"[{i}/{len(todo)}] {acq.key}: {stats} ({(datetime.now(UTC) - t0).total_seconds():.0f}s)")
         except Exception as e:  # keep going: one bad scene must not stop monitoring
             res.scenes_failed += 1
