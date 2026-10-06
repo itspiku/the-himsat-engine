@@ -16,12 +16,14 @@ interface State {
   hcList: { name: string; aoi_name: string; event_time: string | null }[];
   hcName: string | null;
   hcIndex: number; // index into hindcast timeline dates
+  showEvents: boolean;
+  query: string;
   hcDates: number[];
   playing: number | null;
 }
 
 const S: State = { mode: "live", sites: null, alerts: [], selected: null, hindcast: null, hcList: [], hcName: null,
-  hcIndex: 0, hcDates: [], playing: null };
+  showEvents: true, query: "", hcIndex: 0, hcDates: [], playing: null };
 let map: MLMap;
 
 const $ = <T extends HTMLElement = HTMLElement>(sel: string, root: ParentNode = document) => root.querySelector(sel) as T;
@@ -55,8 +57,11 @@ function shell(): void {
     </div>
   </header>
   <main class="body">
-    <div id="map" class="map"></div>
-    <aside class="panel" id="panel"></aside>
+    <div class="mapwrap">
+      <div id="map" class="map" role="region" aria-label="map"></div>
+      <details class="legend" id="legend" ${window.innerWidth > 820 ? "open" : ""}></details>
+    </div>
+    <aside class="panel" id="panel" aria-live="polite"></aside>
   </main>
   <footer class="foot"><span data-i18n="disclaimer"></span> · <strong data-i18n="emergency"></strong></footer>`;
   document.querySelectorAll<HTMLButtonElement>("[data-mode]").forEach((b) =>
@@ -75,7 +80,27 @@ function shell(): void {
   translate();
 }
 
+function renderLegend(): void {
+  const lv = (l: string) => `<li><span class="sw dot" style="--c:${LEVEL_COLOR[l]}"></span>${levelBadge(l)}</li>`;
+  const el = $("#legend");
+  const open = el.hasAttribute("open");
+  el.innerHTML = `<summary>${t("legend")}</summary>
+    <ul>${["high", "medium", "low", "unknown"].map(lv).join("")}
+      <li><span class="sw line"></span>${t("flowPath")}</li>
+      <li><span class="sw ring"></span>${t("exposedPlace")}</li>
+      <li><span class="sw bull"></span>${t("eventSource")}</li>
+      <li><label><input type="checkbox" id="tg-events" ${S.showEvents ? "checked" : ""}> <span class="sw dot" style="--c:#7a4fd0"></span>${t("radarChange")}</label></li>
+    </ul>`;
+  if (!open) el.removeAttribute("open");
+  $<HTMLInputElement>("#tg-events").addEventListener("change", (e) => {
+    S.showEvents = (e.target as HTMLInputElement).checked;
+    setVisible(map, "events-dot", S.showEvents);
+    setVisible(map, "events-fill", S.showEvents);
+  });
+}
+
 function translate(): void {
+  renderLegend();
   document.querySelectorAll<HTMLElement>("[data-i18n]").forEach((e) => (e.textContent = t(e.dataset.i18n as "title")));
   $("#lang").textContent = getLang() === "ne" ? "English" : "नेपाली";
   $("#basemap").textContent = t("satellite");
@@ -159,10 +184,24 @@ function renderLive(): void {
     </section>
     <section>
       <h2>${t("sites")} <span class="muted">(${num(feats.length)})</span></h2>
-      <ul class="sitelist">${top.map((f) => siteRow(f.properties)).join("")}</ul>
+      <input id="q" class="search" type="search" placeholder="${t("searchSites")}" aria-label="${t("searchSites")}" value="${esc(S.query)}">
+      <ul class="sitelist" id="sitelist"></ul>
     </section>
     <details class="about"><summary>${t("about")}</summary><p>${t("aboutText")}</p></details>`;
-  panel.querySelectorAll<HTMLElement>("[data-site]").forEach((e) =>
+  const list = $("#sitelist");
+  const draw = () => {
+    const q = S.query.trim().toLowerCase();
+    const shown = q ? [...feats].filter((f) => `${f.properties.name} ${f.properties.name_ne} ${f.properties.code}`
+      .toLowerCase().includes(q)).slice(0, 60) : top;
+    list.innerHTML = shown.length ? shown.map((f) => siteRow(f.properties)).join("") : `<li class="muted">${t("noMatch")}</li>`;
+    list.querySelectorAll<HTMLElement>("[data-site]").forEach((e) => e.addEventListener("click", () => selectSite(e.dataset.site!)));
+  };
+  draw();
+  $<HTMLInputElement>("#q").addEventListener("input", (e) => {
+    S.query = (e.target as HTMLInputElement).value;
+    draw();
+  });
+  panel.querySelectorAll<HTMLElement>(".alert [data-site]").forEach((e) =>
     e.addEventListener("click", () => selectSite(e.dataset.site!)));
 }
 
@@ -275,7 +314,9 @@ function drawSiteCharts(root: HTMLElement, kind: string, obs: { at: string; kind
       fmt: (v) => num(v, 2), fmtT });
   }
   if (kind === "glacial_lake" || kind === "barrier_lake") {
-    const pts = obs.filter((o) => o.kind === "lake_area" && o.quality >= 0.8 && o.values.area_m2 !== undefined)
+    // same trust rule as the risk model: radar areas far below the known outline are artefacts
+    const pts = obs.filter((o) => o.kind === "lake_area" && o.quality >= 0.8 && o.values.area_m2 !== undefined
+      && !(o.sensor === "S1" && o.values.reference_area_m2 && o.values.area_m2 < 0.5 * o.values.reference_area_m2))
       .map((o) => ({ t: Date.parse(o.at), v: o.values.area_m2 / 1e6, label: o.sensor }));
     lineChart(add(), pts, { title: t("lakeArea"), eventTime, eventLabel: t("event"), fmt: (v) => num(v, 3), fmtT });
   }
