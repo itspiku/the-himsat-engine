@@ -31,6 +31,7 @@ const STYLE: StyleSpecification = {
     },
   },
   layers: [
+    { id: "bg", type: "background", paint: { "background-color": "#e9e7e1" } },
     { id: "osm", type: "raster", source: "osm" },
     { id: "s2", type: "raster", source: "s2", layout: { visibility: "none" } },
   ],
@@ -57,6 +58,8 @@ export function createMap(container: HTMLElement): MLMap {
     cooperativeGestures: false,
   });
   map.addControl(new maplibregl.NavigationControl({ visualizePitch: false }), "top-left");
+  // keep the canvas in step with its container (layout changes, panel resizes, orientation)
+  new ResizeObserver(() => map.resize()).observe(container);
   map.addControl(new maplibregl.ScaleControl({ unit: "metric" }), "bottom-left");
   {
     map.on("load", () => {
