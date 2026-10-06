@@ -99,3 +99,38 @@ def test_medium_alert_waits_for_review(session):
     assert alert.status == "dispatched" and stats["failed"] == 1  # only the in-area medium subscriber
     d = session.query(Delivery).one()
     assert d.status == "failed" and "500" in d.last_error
+
+
+def test_roster_import_is_idempotent(session, tmp_path):
+    import pytest
+
+    from himsat.alerts.roster import import_roster
+
+    roster = tmp_path / "subs.yaml"
+    roster.write_text("""subscribers:
+  - name: Test RM
+    org_type: municipality
+    language: ne
+    phone: "+9779800000001"
+    channels: [sms]
+    bbox: [85.2, 28.0, 85.6, 28.4]
+  - name: Ops desk
+    email: ops@example.org
+    channels: [email]
+""", encoding="utf-8")
+    assert import_roster(session, roster) == {"created": 2, "updated": 0, "deactivated": 0}
+    assert import_roster(session, roster) == {"created": 0, "updated": 2, "deactivated": 0}
+    rm = session.query(Subscriber).filter_by(name="Test RM").one()
+    assert rm.geom and rm.channels == ["sms"]
+    roster.write_text("subscribers:\n  - name: Broken\n    channels: [sms]\n", encoding="utf-8")
+    with pytest.raises(ValueError, match="sms"):
+        import_roster(session, roster)
+
+
+def test_example_roster_is_valid(session):
+    from pathlib import Path
+
+    from himsat.alerts.roster import import_roster
+
+    stats = import_roster(session, Path(__file__).resolve().parents[1] / "config" / "subscribers.example.yaml")
+    assert stats["created"] == 8
