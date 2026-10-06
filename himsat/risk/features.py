@@ -37,8 +37,13 @@ def _med(xs: list[float]) -> float | None:
 def lake_features(obs: list[Obs], as_of: datetime, cfg: dict, attrs: dict) -> tuple[dict, float]:
     w = cfg["windows"]
     qmin = cfg["quality"]["min_lake_quality"]
+    def trustworthy(o: Obs) -> bool:
+        # radar areas far below the known outline are wind/ice artefacts (see detect.lakes)
+        ref = o.values.get("reference_area_m2")
+        return not (o.sensor == "S1" and ref and o.values["area_m2"] < 0.5 * ref)
+
     good = [o for o in obs if o.kind == "lake_area" and o.observed_at <= as_of and o.quality >= qmin
-            and o.values.get("area_m2") is not None]
+            and o.values.get("area_m2") is not None and trustworthy(o)]
     feats: dict[str, float | None] = {}
     feats["steep_walls_deg"] = attrs.get("max_surrounding_slope_deg")
     feats["glacier_contact_m"] = attrs.get("glacier_distance_m")

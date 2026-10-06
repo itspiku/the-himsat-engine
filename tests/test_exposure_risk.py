@@ -116,3 +116,14 @@ def test_fracture_evidence_needs_persistent_anomaly(t0):
     assert "new_fractures_m" not in feats  # a single anomalous scene is not persistent
     _event_features(hist + [surf(3, 1500.0), surf(12, 1400.0)], t0, cfg["windows"], feats)
     assert feats["new_fractures_m"] > 1000
+
+
+def test_radar_lake_area_far_below_outline_is_ignored(t0):
+    cfg = load_risk_config()
+
+    def s1(days, area):
+        return Obs("lake_area", "S1", t0 - timedelta(days=days), {"area_m2": area, "reference_area_m2": 1_500_000}, 0.9)
+
+    obs = [s1(50, 1_480_000), s1(40, 1_500_000), s1(3, 60_000), s1(5, 1_520_000)]
+    f, _ = lake_features(obs, t0, cfg, {})
+    assert abs(f["lake_growth_recent_pct"]) < 5  # the 0.06 km² wind artefact does not count

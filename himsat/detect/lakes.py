@@ -134,4 +134,8 @@ def sar_water_area(vv_db: np.ndarray, grid: Grid, lake_mask: np.ndarray, slope: 
     outside = vv_db[zone & ~mask & np.isfinite(vv_db)]
     contrast = float(np.nanmedian(outside) - np.nanmedian(inside)) if outside.size and inside.size else 0.0
     quality = float(np.clip(contrast / 8.0, 0.0, 1.0)) * float(finite.mean())
+    # wind-roughened or frozen lakes stop looking dark: if most of the known outline is no longer
+    # classified as water the measurement is unreliable, not evidence of change
+    overlap = float((mask & lake_mask).sum() / max(lake_mask.sum(), 1))
+    quality *= float(np.clip(overlap / 0.7, 0.0, 1.0))
     return float(mask.sum() * grid.pixel_area), quality, mask
