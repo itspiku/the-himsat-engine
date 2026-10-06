@@ -317,6 +317,17 @@ def subs_add(name: str, org_type: str = "other", language: str = "ne", phone: st
         console.print(f"subscriber {sub.id} added")
 
 
+@subs_app.command("import")
+def subs_import(path: Path, deactivate_missing: bool = typer.Option(False, help="deactivate subscribers not in the file")) -> None:
+    """Create/update subscribers from a YAML roster (see config/subscribers.example.yaml)."""
+    from himsat.alerts.roster import import_roster
+    from himsat.db.session import init_db, session_scope
+
+    init_db()
+    with session_scope() as s:
+        console.print(import_roster(s, path, deactivate_missing))
+
+
 @subs_app.command("list")
 def subs_list() -> None:
     from sqlalchemy import select
