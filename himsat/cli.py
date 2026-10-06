@@ -106,9 +106,11 @@ def run(aoi_id: str,
 @app.command()
 def watch(aoi_ids: list[str], interval_minutes: int = typer.Option(None, help="default from settings")) -> None:
     """Run monitoring cycles forever (for a container / systemd service)."""
+    from himsat.maintenance import prune
     from himsat.pipeline.monitor import CycleOptions, run_cycle
 
     interval = (interval_minutes or get_settings().schedule_interval_minutes) * 60
+    last_prune = 0.0
     while True:
         t0 = time.monotonic()
         for aoi in aoi_ids:
@@ -117,6 +119,12 @@ def watch(aoi_ids: list[str], interval_minutes: int = typer.Option(None, help="d
                 log.info("cycle %s: %s", aoi, res.stats)
             except Exception:
                 log.exception("cycle %s failed", aoi)
+        if time.monotonic() - last_prune > 86400:  # daily housekeeping keeps the volume bounded
+            try:
+                prune()
+            except Exception:
+                log.exception("prune failed")
+            last_prune = time.monotonic()
         sleep = max(60.0, interval - (time.monotonic() - t0))
         log.info("next cycle in %.0f min", sleep / 60)
         time.sleep(sleep)
