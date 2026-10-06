@@ -97,11 +97,30 @@ downstream asset** lies inside their area.
 * `/data` volume: the raster cache (`cache/`) can be rebuilt. `products/` (S2 composites,
   velocity fields) speeds up change detection and should be backed up weekly.
 
-## 7. Known limitations
+## 7. InSAR (recommended for slow slope deformation)
+
+Offset tracking sees motion of roughly ≥ 3–5 cm/day. Precursors such as the ~10 mm/month creep reported
+before the 2026 Lhende Khola collapse need interferometry:
+
+```bash
+pip install "himsat[insar]"                       # or build the image with EXTRAS="postgres,insar"
+export HIMSAT_INSAR_ENABLED=true HIMSAT_EARTHDATA_USERNAME=... HIMSAT_EARTHDATA_PASSWORD=...
+himsat insar pairs rasuwa-lhende --start 2026-08-01    # preview SLC pairs (no login needed)
+himsat insar run rasuwa-lhende --start 2026-06-01      # submit jobs, ingest finished products
+```
+
+With `HIMSAT_INSAR_ENABLED=true`, every monitoring cycle submits new 12-day pairs and ingests
+finished products. HyP3 typically needs 20–60 minutes per job, so InSAR evidence arrives one cycle
+later than amplitude evidence. Each interferogram is referenced to stable terrain. Per-site
+line-of-sight velocities feed the same significance-gated anomaly test as other velocities
+(`insar_ratio`, `insar_mm_month` in `risk.yaml`). Free HyP3 accounts have a monthly job quota:
+monitor the AOIs that matter most.
+
+## 8. Known limitations
 
 * Sentinel-1 amplitude offset tracking resolves about 2–5 cm/day over ~1 km² after stacking.
-  Slower creep (mm/month) needs InSAR, e.g. ASF HyP3 (free with NASA Earthdata login), which
-  is not yet integrated.
+  Slower creep (mm/month) needs the optional InSAR step (section 7). InSAR loses coherence on
+  fast-changing snow and ice surfaces, so it complements offset tracking rather than replacing it.
 * Optical change detection needs clear sky. During the monsoon, radar carries the monitoring.
 * Lake outlines below ~0.005 km² are not tracked.
 * Downstream arrival times use a constant wave speed per hazard type, so they are indicative
