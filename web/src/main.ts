@@ -312,6 +312,12 @@ function drawSiteCharts(root: HTMLElement, kind: string, obs: { at: string; kind
     const pts = [...byT.entries()].map(([tt, a]) => ({ t: tt, v: a.v / a.w, se: 1 / Math.sqrt(a.w) }));
     lineChart(add(), pts, { title: t("velocity"), unit: "m/d", zeroLine: true, eventTime, eventLabel: t("event"),
       fmt: (v) => num(v, 2), fmtT });
+    const ins = obs.filter((o) => o.kind === "insar_los" && o.values.v_los_m_day !== undefined)
+      .map((o) => ({ t: Date.parse(o.at), v: o.values.v_los_m_day * 30000, se: (o.values.v_los_se ?? 0) * 30000 }));
+    if (ins.length) {
+      lineChart(add(), ins, { title: t("insarVelocity"), unit: "mm", zeroLine: true, eventTime, eventLabel: t("event"),
+        fmt: (v) => num(v, 0), fmtT });
+    }
   }
   if (kind === "glacial_lake" || kind === "barrier_lake") {
     // same trust rule as the risk model: radar areas far below the known outline are artefacts

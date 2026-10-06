@@ -27,6 +27,7 @@ const STRINGS = {
   assessed: { en: "Assessed", ne: "मूल्याङ्कन" },
   velocity: { en: "Downslope velocity (m/day)", ne: "भिरतर्फको गति (मिटर/दिन)" },
   lakeArea: { en: "Lake area (km²)", ne: "तालको क्षेत्रफल (वर्ग कि.मि.)" },
+  insarVelocity: { en: "InSAR line-of-sight motion (mm/month)", ne: "इनसार दृष्टिरेखा गति (मिलिमिटर/महिना)" },
   riskHistory: { en: "Risk score", ne: "जोखिम अंक" },
   close: { en: "Close", ne: "बन्द" },
   basemap: { en: "Basemap", ne: "आधार नक्सा" },
