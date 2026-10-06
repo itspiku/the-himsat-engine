@@ -136,7 +136,12 @@ FOOTER = {
 }
 
 
+GLACIER_CONTACT = {"en": "The lake is in contact with glacier ice", "ne": "ताल हिमनदीको हिउँसँग जोडिएको छ"}
+
+
 def reason_text(code: str, value: float, lang: str) -> str:
+    if code == "glacier_contact_m" and value < 30:
+        return GLACIER_CONTACT[lang]
     tpl = REASON.get(code, {}).get(lang)
     if not tpl:
         return code

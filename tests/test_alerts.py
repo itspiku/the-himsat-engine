@@ -136,3 +136,8 @@ def test_cap_export_is_valid_xml(facts):
     assert [i.find("c:language", ns).text for i in infos] == ["ne-NP", "en-US"]
     assert infos[0].find("c:severity", ns).text == "Severe"
     json.dumps(t, ensure_ascii=False)
+
+
+def test_glacier_contact_wording():
+    assert P.reason_text("glacier_contact_m", 0.0, "en") == "The lake is in contact with glacier ice"
+    assert "मिटर" in P.reason_text("glacier_contact_m", 240.0, "ne")
