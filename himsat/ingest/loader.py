@@ -74,10 +74,12 @@ def read_to_grid(href: str, grid: Grid, *, resampling: Resampling = Resampling.b
         with rasterio.open(cpath) as src:
             return src.read(1)
 
-    url = catalog.sign(href) if catalog else href
     fill = np.nan if np.dtype(dtype).kind == "f" else (nodata if nodata is not None else 0)
 
     def _read() -> np.ndarray:
+        # sign on every attempt: Planetary Computer SAS tokens are short-lived, and a retry must
+        # not reuse a URL whose signature expired during a long run
+        url = catalog.sign(href) if catalog else href
         with rasterio.Env(**GDAL_ENV), rasterio.open(url) as src:
             src_nodata = src.nodata if nodata is None else nodata
             with WarpedVRT(src, crs=f"EPSG:{grid.epsg}", transform=grid.transform, width=grid.width,
