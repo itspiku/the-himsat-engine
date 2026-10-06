@@ -49,6 +49,12 @@ class Settings(BaseSettings):
     prithvi_backbone: str = "ibm-nasa-geospatial/Prithvi-EO-2.0-100M-TL"
     sam_model: str | None = None  # e.g. "facebook/sam-vit-base"; None disables SAM refinement
 
+    # InSAR via ASF HyP3 (optional; free with a NASA Earthdata login)
+    insar_enabled: bool = False
+    earthdata_username: str | None = None
+    earthdata_password: str | None = None
+    insar_looks: str = "20x4"  # 20x4 ≈ 80 m pixels (robust), 10x2 ≈ 40 m (detail)
+
     # LLM (self-hosted, OpenAI-compatible: Ollama / vLLM / llama.cpp server / LocalAI)
     llm_backend: Literal["openai", "none"] = "openai"
     llm_base_url: str = "http://localhost:11434/v1"

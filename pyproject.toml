@@ -41,6 +41,7 @@ ml = [
     "transformers>=4.40",
 ]
 postgres = ["psycopg[binary]>=3.1"]
+insar = ["asf_search>=8.0", "hyp3_sdk>=7.0"]
 dev = ["pytest>=8", "pytest-cov>=5", "ruff>=0.4", "respx>=0.21"]
 
 [project.scripts]
