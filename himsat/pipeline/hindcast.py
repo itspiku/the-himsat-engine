@@ -175,7 +175,37 @@ def build_report(aoi_id: str, db_url: str, start: datetime, end: datetime, event
         "aoi": cfg.model_dump(mode="json"), "period": [start, end], "event_time": event_time,
         "event_lonlat": event_lonlat, "generated_at": datetime.now(UTC), "scenes": scene_stats,
         "sites": site_rows, "focus_sites": [r["code"] for r in focus], "alerts": alert_rows, "change_events": ev_rows,
+        "summary": summarize(site_rows, alert_rows, ev_rows, event_time, {r["code"] for r in focus}),
     }
+
+
+def summarize(sites: list[dict], alerts: list[dict], events: list[dict], event_time, focus: set[str]) -> dict:
+    """Headline evaluation: warning at the source before the event, alerts elsewhere, detection after."""
+    if event_time is None:
+        return {"alerts": len(alerts)}
+    pre = [a for a in alerts if a["pre_event"]]
+    at_source = [a for a in pre if a["site"] in focus]
+    elsewhere = [a for a in pre if a["site"] not in focus]
+    first = min(at_source, key=lambda a: a["available_at"]) if at_source else None
+    src_levels = [s["max_pre_event"]["level"] for s in sites if s["code"] in focus and s["max_pre_event"]]
+    rank = {"low": 0, "medium": 1, "high": 2}
+    post_mm = sorted([e for e in events if e["kind"] == "mass_movement" and e["confidence"] >= 0.7
+                      and (e["distance_to_event_km"] or 99) <= 5 and _as_dt(e["at"]) > event_time],
+                     key=lambda e: e["at"])
+    return {
+        "warned_before_event": bool(at_source),
+        "first_warning_lead_time_h": first["lead_time_h"] if first else None,
+        "first_warning_level": first["level"] if first else None,
+        "max_pre_event_level_near_source": max(src_levels, key=lambda lv: rank.get(lv, -1)) if src_levels else None,
+        "pre_event_alerts_elsewhere": len(elsewhere),
+        "pre_event_alerts_elsewhere_by_level": {lv: sum(a["level"] == lv for a in elsewhere) for lv in ("medium", "high")},
+        "post_event_detection_h": round((_as_dt(post_mm[0]["at"]) - event_time).total_seconds() / 3600, 1)
+        if post_mm else None,
+    }
+
+
+def _as_dt(t):
+    return t if isinstance(t, datetime) else datetime.fromisoformat(str(t))
 
 
 def _exposure_top(session, site_id: int, n: int = 8) -> list[dict]:
@@ -206,6 +236,22 @@ def render_markdown(r: dict) -> str:
              f"({sc['skipped']} skipped as cloudy/no coverage, {sc['failed']} failed)\n")
     pre_alerts = [a for a in r["alerts"] if a["pre_event"]]
     post_alerts = [a for a in r["alerts"] if a["pre_event"] is False]
+    sm = r.get("summary") or {}
+    if r["event_time"] and sm:
+        L.append("## Summary\n")
+        if sm["warned_before_event"]:
+            L.append(f"- **Warned before the event:** yes, {sm['first_warning_level'].upper()} alert "
+                     f"{sm['first_warning_lead_time_h']:.1f} h ahead for a site within 5 km of the source.")
+        else:
+            L.append(f"- **Warned before the event:** no. Highest pre-event status near the source: "
+                     f"{(sm['max_pre_event_level_near_source'] or 'not assessed').upper()}.")
+        el = sm["pre_event_alerts_elsewhere_by_level"]
+        L.append(f"- **Pre-event alerts elsewhere** (potential false alarms; MEDIUM alerts are held for review): "
+                 f"{sm['pre_event_alerts_elsewhere']} ({el['high']} HIGH, {el['medium']} MEDIUM).")
+        if sm["post_event_detection_h"] is not None:
+            L.append(f"- **Event detected after it happened:** confident radar mass-movement detection near the "
+                     f"source {sm['post_event_detection_h']:.0f} h after the event.")
+        L.append("")
     L.append("## Alerts the system would have issued\n")
     if not r["alerts"]:
         L.append("None.\n")
