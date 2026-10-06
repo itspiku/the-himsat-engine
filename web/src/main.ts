@@ -310,12 +310,12 @@ function drawSiteCharts(root: HTMLElement, kind: string, obs: { at: string; kind
       byT.set(tt, cur);
     }
     const pts = [...byT.entries()].map(([tt, a]) => ({ t: tt, v: a.v / a.w, se: 1 / Math.sqrt(a.w) }));
-    lineChart(add(), pts, { title: t("velocity"), unit: "m/d", zeroLine: true, eventTime, eventLabel: t("event"),
+    lineChart(add(), pts, { title: t("velocity"), unit: "m/d", zeroLine: true, eventTime, eventLabel: t("event"), tableLabel: t("dataTable"),
       fmt: (v) => num(v, 2), fmtT });
     const ins = obs.filter((o) => o.kind === "insar_los" && o.values.v_los_m_day !== undefined)
       .map((o) => ({ t: Date.parse(o.at), v: o.values.v_los_m_day * 30000, se: (o.values.v_los_se ?? 0) * 30000 }));
     if (ins.length) {
-      lineChart(add(), ins, { title: t("insarVelocity"), unit: "mm", zeroLine: true, eventTime, eventLabel: t("event"),
+      lineChart(add(), ins, { title: t("insarVelocity"), unit: "mm", zeroLine: true, eventTime, eventLabel: t("event"), tableLabel: t("dataTable"),
         fmt: (v) => num(v, 0), fmtT });
     }
   }
@@ -324,9 +324,9 @@ function drawSiteCharts(root: HTMLElement, kind: string, obs: { at: string; kind
     const pts = obs.filter((o) => o.kind === "lake_area" && o.quality >= 0.8 && o.values.area_m2 !== undefined
       && !(o.sensor === "S1" && o.values.reference_area_m2 && o.values.area_m2 < 0.5 * o.values.reference_area_m2))
       .map((o) => ({ t: Date.parse(o.at), v: o.values.area_m2 / 1e6, label: o.sensor }));
-    lineChart(add(), pts, { title: t("lakeArea"), eventTime, eventLabel: t("event"), fmt: (v) => num(v, 3), fmtT });
+    lineChart(add(), pts, { title: t("lakeArea"), eventTime, eventLabel: t("event"), tableLabel: t("dataTable"), fmt: (v) => num(v, 3), fmtT });
   }
-  if (risk.length) lineChart(add(), risk, { title: t("riskHistory"), eventTime, eventLabel: t("event"), fmt: (v) => num(v), fmtT, step: true });
+  if (risk.length) lineChart(add(), risk, { title: t("riskHistory"), eventTime, eventLabel: t("event"), tableLabel: t("dataTable"), fmt: (v) => num(v), fmtT, step: true });
 }
 
 // ------------------------------------------------------------------------------------------

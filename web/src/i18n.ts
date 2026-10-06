@@ -66,6 +66,7 @@ const STRINGS = {
   runNow: { en: "Run now", ne: "अहिले चलाउनुहोस्" },
   error: { en: "Something went wrong", ne: "केही समस्या भयो" },
   legend: { en: "Legend", ne: "सङ्केत" },
+  dataTable: { en: "Show data", ne: "तथ्याङ्क हेर्नुहोस्" },
   searchSites: { en: "Search sites by name or code", ne: "नाम वा कोडले स्थल खोज्नुहोस्" },
   flowPath: { en: "Flood path (selected site)", ne: "बाढीको बाटो (छानिएको स्थल)" },
   exposedPlace: { en: "Place at risk, with arrival time", ne: "जोखिममा रहेको स्थान र पुग्ने समय" },

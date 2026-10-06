@@ -20,6 +20,7 @@ export interface ChartOpts {
   fmt?: (v: number) => string;
   fmtT?: (t: number) => string;
   step?: boolean;
+  tableLabel?: string;
 }
 
 const NS = "http://www.w3.org/2000/svg";
@@ -123,7 +124,13 @@ export function lineChart(container: HTMLElement, pts: Point[], o: ChartOpts): v
   const tip = document.createElement("div");
   tip.className = "tooltip";
   tip.hidden = true;
-  fig.append(svg, tip);
+  // accessible table view of the same data (screen readers, print, colour-independent reading)
+  const tbl = document.createElement("details");
+  tbl.className = "chart-data";
+  const rows = pts.map((p) => `<tr><td>${fmtT(p.t)}</td><td>${fmt(p.v)}${p.se ? ` ±${fmt(p.se)}` : ""}</td>${
+    p.label ? `<td>${p.label}</td>` : ""}</tr>`).join("");
+  tbl.innerHTML = `<summary>${o.tableLabel ?? "Data"}</summary><table class="tbl"><tbody>${rows}</tbody></table>`;
+  fig.append(svg, tip, tbl);
   const show = (clientX: number) => {
     const r = svg.getBoundingClientRect();
     const sx = ((clientX - r.left) / r.width) * W;
