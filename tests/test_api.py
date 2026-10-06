@@ -39,7 +39,8 @@ def client(db_url, tmp_path):
 
 
 def test_public_endpoints(client):
-    assert client.get("/api/health").json()["status"] == "ok"
+    h = client.get("/api/health").json()
+    assert h["status"] == "degraded" and h["monitoring"]["stale"]  # no monitoring run has finished yet
     fc = client.get("/api/sites").json()
     assert fc["type"] == "FeatureCollection" and fc["features"][0]["properties"]["level"] == "high"
     d = client.get("/api/sites/LHD-S0001").json()
@@ -100,3 +101,24 @@ def test_hindcast_endpoints_and_cache_headers(client, tmp_path):
     assert client.get("/api/alerts").headers["cache-control"] == "no-cache"
     r = client.get("/api/health")
     assert r.headers["x-content-type-options"] == "nosniff"
+
+
+def test_prune_removes_only_old_files(tmp_path):
+    import os
+    import time
+
+    from himsat.maintenance import prune
+
+    s = Settings(data_dir=tmp_path)
+    old = s.cache_dir / "rasters" / "ab" / "old.tif"
+    new = s.cache_dir / "rasters" / "ab" / "new.tif"
+    vel = s.products_dir / "aoi" / "velocity" / "0_0" / "x.npz"
+    for f in (old, new, vel):
+        f.parent.mkdir(parents=True, exist_ok=True)
+        f.write_bytes(b"x" * 10)
+    t = time.time() - 200 * 86400
+    os.utime(old, (t, t))
+    os.utime(vel, (t, t))
+    res = prune(s, cache_days=120, velocity_days=400)
+    assert res["cache_files"] == 1 and res["velocity_files"] == 0
+    assert not old.exists() and new.exists() and vel.exists()
