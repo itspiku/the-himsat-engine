@@ -68,7 +68,9 @@ downstream asset** lies inside their area.
 
 ## 4. Monitoring the system itself
 
-* `GET /api/health`: DB reachable plus the last pipeline run.
+* `GET /api/health`: DB reachable plus the last pipeline run. `status` is `degraded` (HTTP 200)
+  when no monitoring run has finished within 2 × the schedule interval: point your uptime checker at
+  this field.
 * `GET /metrics` (Prometheus): `himsat_sites{level}`, `himsat_alerts{status}`,
   `himsat_last_run_finished_timestamp{aoi}`, HTTP latency.
   **Alert if the last finished run is older than 2 × the schedule interval.**
@@ -94,6 +96,8 @@ downstream asset** lies inside their area.
 ## 6. Backup and recovery
 
 * PostgreSQL: daily `pg_dump`. Keep `alerts`, `deliveries`, `risk_assessments` for audit.
+* Weekly housekeeping: `himsat admin prune` (raster cache > 120 days, velocity fields > 400 days;
+  `--dry-run` shows what would go).
 * `/data` volume: the raster cache (`cache/`) can be rebuilt. `products/` (S2 composites,
   velocity fields) speeds up change detection and should be backed up weekly.
 
