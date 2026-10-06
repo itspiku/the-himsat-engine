@@ -86,12 +86,13 @@ def neighbours(cell: str) -> list[str]:
     return [f"{r + dr}_{c + dc}" for dr in (-1, 0, 1) for dc in (-1, 0, 1) if dr or dc]
 
 
-def weighted_mean(vs: list[float], ses: list[float], clip: float = 3.5) -> tuple[float, float] | None:
-    """Inverse-variance mean with one pass of outlier rejection."""
+def weighted_mean(vs: list[float], ses: list[float], clip: float = 3.5,
+                  min_se: float = 1e-3) -> tuple[float, float] | None:
+    """Inverse-variance mean with one pass of outlier rejection (``min_se`` guards against zero errors)."""
     if not vs:
         return None
     v = np.asarray(vs, float)
-    s = np.maximum(np.asarray(ses, float), 1e-3)
+    s = np.maximum(np.asarray(ses, float), min_se)
     w = 1 / s**2
     m = float(np.sum(w * v) / np.sum(w))
     keep = np.abs(v - np.median(v)) <= clip * s + 1e-9
