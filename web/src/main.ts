@@ -511,7 +511,8 @@ async function loadAdmin(): Promise<void> {
   const key = getKey();
   const box = $("#adm");
   try {
-    const [queue, subs, runs] = await Promise.all([api.admin.queue(key), api.admin.subscribers(key), api.admin.runs(key)]);
+    const [queue, subs, runs, aois] = await Promise.all([api.admin.queue(key), api.admin.subscribers(key),
+      api.admin.runs(key), api.aois()]);
     box.innerHTML = `
       <section><h3>${t("reviewQueue")} (${num(queue.length)})</h3>
         ${queue.map((a) => `<article class="alert" style="--lv:${LEVEL_COLOR[a.level]}">
@@ -533,8 +534,18 @@ async function loadAdmin(): Promise<void> {
             <select name="min_level"><option>medium</option><option>high</option></select>
             <button class="primary">${t("save")}</button></form></details>
       </section>
-      <section><h3>${t("runs")}</h3><table class="tbl"><tbody>${runs.slice(0, 8).map((r) => `<tr><td>${esc(String(r.aoi))}</td><td>${esc(String(r.status))}</td><td>${fmtTime(String(r.started_at))}</td></tr>`).join("")}</tbody></table></section>`;
+      <section><h3>${t("runs")}</h3>
+        <form id="runform" class="form row-form"><select id="runaoi">${aois.map((a) => `<option value="${esc(a.id)}">${esc(nm(a.name, a.name_ne))}</option>`).join("")}</select>
+        <button class="primary">${t("runNow")}</button></form>
+        <table class="tbl"><tbody>${runs.slice(0, 8).map((r) => `<tr><td>${esc(String(r.aoi))}</td><td>${esc(String(r.status))}</td><td>${fmtTime(String(r.started_at))}</td></tr>`).join("")}</tbody></table></section>`;
     const officer = () => $<HTMLInputElement>("#officer").value.trim();
+    $("#runform").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const btn = (e.target as HTMLFormElement).querySelector("button")!;
+      btn.disabled = true;
+      await api.admin.run(key, $<HTMLSelectElement>("#runaoi").value).catch((err) => alert(String(err)));
+      setTimeout(() => void loadAdmin(), 1500);
+    });
     box.querySelectorAll<HTMLButtonElement>("[data-approve]").forEach((b) => b.addEventListener("click", async () => {
       if (!officer()) return alert(t("officer"));
       b.disabled = true;
