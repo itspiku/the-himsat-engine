@@ -23,7 +23,11 @@ docker compose exec api himsat admin check       # STAC, LLM, channels, segmente
 Without an LLM, alerts use the deterministic Nepali/English templates. They are complete and
 validated, so the warning system works either way.
 
-Put a TLS-terminating reverse proxy (nginx, Caddy, Traefik) in front of port 8000. Rate-limit
+Without Docker: install into `/opt/himsat` (`pip install ".[postgres]"`) and use the systemd units
+in `deploy/systemd/`.
+
+Put a TLS-terminating reverse proxy (nginx, Caddy, Traefik) in front of port 8000; see
+`deploy/nginx.conf` for an example with admin rate limiting. Rate-limit
 `/api/admin`. The public map must stay reachable over slow mobile links: responses are
 gzip-compressed and the map loads only its own JavaScript bundle (≈300 kB gzipped) plus tiles.
 

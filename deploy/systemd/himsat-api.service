@@ -1,0 +1,19 @@
+[Unit]
+Description=HimSat Engine API and public map
+After=network-online.target postgresql.service
+Wants=network-online.target
+
+[Service]
+User=himsat
+WorkingDirectory=/opt/himsat
+EnvironmentFile=/opt/himsat/.env
+ExecStartPre=/opt/himsat/.venv/bin/himsat db upgrade
+ExecStart=/opt/himsat/.venv/bin/himsat serve --host 127.0.0.1 --port 8000 --workers 2
+Restart=always
+RestartSec=5
+NoNewPrivileges=true
+ProtectSystem=strict
+ReadWritePaths=/opt/himsat/data
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,18 @@
+[Unit]
+Description=HimSat Engine monitoring worker
+After=network-online.target postgresql.service himsat-api.service
+Wants=network-online.target
+
+[Service]
+User=himsat
+WorkingDirectory=/opt/himsat
+EnvironmentFile=/opt/himsat/.env
+ExecStart=/opt/himsat/.venv/bin/himsat watch rasuwa-trishuli rolwaling-tamakoshi khumbu-dudhkoshi manaslu-marsyangdi
+Restart=always
+RestartSec=60
+NoNewPrivileges=true
+ProtectSystem=strict
+ReadWritePaths=/opt/himsat/data
+
+[Install]
+WantedBy=multi-user.target
