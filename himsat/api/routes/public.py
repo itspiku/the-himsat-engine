@@ -39,10 +39,18 @@ def _site_props(s: Site) -> dict:
 
 
 @router.get("/health")
-def health(db: Session = Depends(get_db)) -> dict:
+def health(db: Session = Depends(get_db), settings: Settings = Depends(get_settings_dep)) -> dict:
+    """Liveness plus data freshness: 'degraded' when monitoring has not finished a run recently."""
     db.execute(select(1))
+    now = datetime.now(UTC)
     last = db.scalar(select(PipelineRun).order_by(PipelineRun.started_at.desc()).limit(1))
-    return {"status": "ok", "version": __version__, "time": datetime.now(UTC).isoformat(),
+    last_ok = db.scalar(select(func.max(PipelineRun.finished_at)).where(PipelineRun.kind == "monitor",
+                                                                        PipelineRun.status.in_(("ok", "partial"))))
+    max_age = timedelta(minutes=2 * settings.schedule_interval_minutes)
+    stale = last_ok is None or now - last_ok > max_age
+    return {"status": "degraded" if stale else "ok", "version": __version__, "time": now.isoformat(),
+            "monitoring": {"last_finished": last_ok.isoformat() if last_ok else None, "stale": stale,
+                           "max_age_minutes": int(max_age.total_seconds() // 60)},
             "last_run": {"aoi": last.aoi_id, "status": last.status, "started_at": last.started_at,
                          "finished_at": last.finished_at} if last else None}
 
