@@ -196,7 +196,7 @@ def _cell_anomalies(session: Session, ctx: AOIContext, acq: Acquisition, cells: 
     """Test updated cells; promote significant ones (merged with anomalous neighbours) to slope sites."""
     session.flush()
     by_cell: dict[str, list] = {}
-    for r in _cell_rows(session, ctx.cfg.id, sorted(cells), acq.datetime, days=160):
+    for r in _cell_rows(session, ctx.cfg.id, sorted(cells), acq.datetime, days=400):  # incl. last season
         by_cell.setdefault(r.cell, []).append((r.pair_end, r.v, r.se, r.orbit))
     hot = {}
     for cell, rr in by_cell.items():

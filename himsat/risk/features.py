@@ -12,7 +12,7 @@ from datetime import datetime, timedelta
 from statistics import median
 from typing import Any
 
-from himsat.detect.cells import MIN_V, RATIO_FLOOR, weighted_mean
+from himsat.detect.cells import MIN_V, RATIO_FLOOR, SEASON_MIN_PAIRS, seasonal_window, weighted_mean
 
 
 @dataclass
@@ -141,11 +141,11 @@ def ice_features(obs: list[Obs], as_of: datetime, cfg: dict, attrs: dict) -> tup
         _insar_features(obs, as_of, w, feats)
         return feats, 0.15
     recent = [o for o in vel if _in_window(o, as_of, 0, w["recent_days"])]
-    lo, hi = w["velocity_baseline_days"]
-    base = [o for o in vel if _in_window(o, as_of, lo, hi)]
+    base, seasonal = _baseline(vel, as_of, w)
+    feats["velocity_seasonal_baseline"] = 1.0 if seasonal else 0.0
     wr = weighted_mean([v_of(o) for o in recent], [se_of(o) for o in recent]) if recent else None
     wb = (weighted_mean([v_of(o) for o in base], [se_of(o) for o in base])
-          if len(base) >= w["velocity_min_baseline_pairs"] else None)
+          if len(base) >= (SEASON_MIN_PAIRS if seasonal else w["velocity_min_baseline_pairs"]) else None)
     if wr is not None:
         v_now, se_now = wr
         feats["velocity_m_day"] = v_now
@@ -172,6 +172,16 @@ def ice_features(obs: list[Obs], as_of: datetime, cfg: dict, attrs: dict) -> tup
     return feats, min(conf, 1.0)
 
 
+def _baseline(obs: list[Obs], as_of: datetime, w: dict) -> tuple[list[Obs], bool]:
+    """Same season last year if available (removes melt-season speed-ups), else the recent past."""
+    s0, s1 = seasonal_window(as_of)
+    seasonal = [o for o in obs if s0 <= o.observed_at <= s1]
+    if len(seasonal) >= SEASON_MIN_PAIRS:
+        return seasonal, True
+    lo, hi = w["velocity_baseline_days"]
+    return [o for o in obs if _in_window(o, as_of, lo, hi)], False
+
+
 INSAR_MIN_V = 0.0005  # m/day (~15 mm/month) before an InSAR speed-up can count
 INSAR_RATIO_FLOOR = 0.0003  # m/day (~10 mm/month)
 
@@ -180,8 +190,7 @@ def _insar_features(obs: list[Obs], as_of: datetime, w: dict, feats: dict) -> No
     """mm-scale line-of-sight motion from interferometry (optional HyP3 products)."""
     ins = [o for o in obs if o.kind == "insar_los" and o.observed_at <= as_of and o.values.get("coverage", 0) >= 0.3]
     recent = [o for o in ins if _in_window(o, as_of, 0, 2 * w["recent_days"])]
-    lo, hi = w["velocity_baseline_days"]
-    base = [o for o in ins if _in_window(o, as_of, lo, hi)]
+    base, _ = _baseline(ins, as_of, w)
     if not recent or len(base) < 2:
         return
     wr = weighted_mean([o.values["v_los_m_day"] for o in recent], [o.values["v_los_se"] for o in recent], min_se=1e-6)

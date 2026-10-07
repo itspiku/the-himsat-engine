@@ -106,6 +106,8 @@ def weighted_mean(vs: list[float], ses: list[float], clip: float = 3.5,
 # turn ordinary summer motion of a few cm/day into a "10x" anomaly.
 MIN_V = 0.05  # m/day, recent downslope velocity required
 RATIO_FLOOR = 0.03  # m/day, smallest baseline used as the ratio denominator
+SEASON_HALF_DAYS = 30  # same-season baseline: ±30 days around the date one year earlier
+SEASON_MIN_PAIRS = 2
 
 
 @dataclass
@@ -124,12 +126,26 @@ class Anomaly:
         return (self.z >= 3.0 and self.v_recent >= MIN_V and self.ratio >= 2.0 and self.orbits_confirming >= 2)
 
 
+def seasonal_window(t: datetime, half_days: float = SEASON_HALF_DAYS) -> tuple[datetime, datetime]:
+    """The same time of year, one year earlier (±half_days)."""
+    c = t - timedelta(days=365)
+    return c - timedelta(days=half_days), c + timedelta(days=half_days)
+
+
 def anomaly(rows: list[tuple[datetime, float, float, int | None]], t: datetime, recent_days: float = 16,
             base_days: tuple[float, float] = (30, 150), min_base: int = 3) -> Anomaly | None:
-    """rows: (pair_end, v, se, orbit). Compare the recent window with the cell's own baseline."""
+    """rows: (pair_end, v, se, orbit). Compare the recent window with the cell's own baseline.
+
+    The baseline is the same season last year when that history exists (glaciers and permafrost
+    speed up every melt season, so this cancels ordinary seasonality). Otherwise it is the cell's
+    recent past (30–150 days before).
+    """
     rec = [r for r in rows if t - timedelta(days=recent_days) < r[0] <= t]
-    base = [r for r in rows if t - timedelta(days=base_days[1]) <= r[0] <= t - timedelta(days=base_days[0])]
-    if len(rec) < 2 or len(base) < min_base:
+    s0, s1 = seasonal_window(t)
+    base = [r for r in rows if s0 <= r[0] <= s1]
+    if len(base) < SEASON_MIN_PAIRS:
+        base = [r for r in rows if t - timedelta(days=base_days[1]) <= r[0] <= t - timedelta(days=base_days[0])]
+    if len(rec) < 2 or len(base) < min(min_base, SEASON_MIN_PAIRS) or not base:
         return None
     wr = weighted_mean([r[1] for r in rec], [r[2] for r in rec])
     wb = weighted_mean([r[1] for r in base], [r[2] for r in base])
