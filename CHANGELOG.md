@@ -9,6 +9,9 @@ that produced them.
 ## [Unreleased]
 
 ### Added
+- `himsat run --backfill` loads history into the live database: results are timed as when the data
+  arrived, and nothing is sent. `himsat reassess <aoi>` now also works on the live database until the
+  first alert has been dispatched, and only touches that AOI.
 - Same-season velocity baselines. Glacier and slope speeds are compared with the same ±30 days one
   year earlier, so normal summer speed-ups are not flagged as acceleration.
 - `scripts/extend_hindcast_baseline.py`, which adds an earlier radar season to an existing hindcast.

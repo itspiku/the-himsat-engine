@@ -94,8 +94,10 @@ downstream asset** lies inside their area.
 * Velocity baselines need history. A new deployment compares speeds with the recent past (30–150
   days earlier) until it has a year of data. After that it uses the same season last year, which is
   far more reliable in the melt season. To start a new AOI with that baseline, process the previous
-  season first: `python scripts/extend_hindcast_baseline.py` for hindcasts, or `himsat run <aoi> --no-dispatch
-  --start <one year ago>` for live monitoring.
+  season first: `python scripts/extend_hindcast_baseline.py` for hindcasts, or for live monitoring
+  `himsat run <aoi> --backfill --start <one year ago>`. Backfilled alerts are timed as when the data
+  arrived and are never sent. Then run `himsat reassess <aoi>` so every assessment uses the full
+  history. The live reassess refuses to run once any alert has been dispatched.
 * Thresholds that most affect false alarms: `windows.velocity_min_z`, the watch-cell test in
   `himsat/detect/cells.py` (z ≥ 3 against the site's measured noise floor, ≥ 0.05 m/day,
   ≥ 2× baseline, ≥ 2 orbits), SAR change
