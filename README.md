@@ -28,6 +28,7 @@ automatic, cheap and transboundary.
 | Lake area under cloud | Sentinel-1 dark-water mapping (local Otsu) around known lakes | `detect/lakes.py` |
 | Ice / rock motion | Sentinel-1 offset tracking (batched FFT cross-correlation, sub-pixel), downslope projection, stable-terrain correction, 12/24/36-day pairs on 3 orbits | `detect/velocity.py` |
 | Watch every slope | ~1 km² **watch cells** over all steep, high terrain; inverse-variance stacking, z-score + cross-orbit anomaly test → new "unstable slope" sites | `detect/cells.py` |
+| mm-scale creep (optional) | **InSAR** via ASF HyP3 on-demand interferograms; stable-terrain-referenced line-of-sight velocities with the same significance-gated anomaly test | `ingest/insar.py` |
 | Scars, cracks, turbidity | S1 log-ratio change (disturbed-scene gate + cross-orbit confirmation), S2 ridge-filter fractures, red/green turbidity, NDVI loss | `detect/change.py` |
 | Downstream exposure | D8 flow path with pit escape over GLO-30, height-above-channel corridor test, arrival times per hazard type, OSM + curated assets | `risk/exposure.py` |
 | Risk | Explainable hazard (noisy-OR of indicators, size-gated) × exposure; alerts need *observed change* | `risk/`, `config/risk.yaml` |
@@ -76,7 +77,12 @@ The report is written to `data/hindcasts/rasuwa-2026/report.md`. Open the map's 
 cp .env.example .env && $EDITOR .env
 docker compose up -d                              # PostgreSQL + API/map + monitoring worker
 docker compose --profile llm up -d ollama         # optional self-hosted LLM
+docker compose exec api himsat subscribers import config/subscribers.yaml   # your alert roster
 ```
+
+Without Docker, see `deploy/systemd/` and `deploy/nginx.conf`. Operations, housekeeping
+(`himsat admin prune`), health/freshness monitoring and InSAR setup are in
+[docs/OPERATIONS.md](docs/OPERATIONS.md). Security hardening is in [SECURITY.md](SECURITY.md).
 
 ---
 
@@ -86,7 +92,7 @@ docker compose --profile llm up -d ollama         # optional self-hosted LLM
 |---|---|---|---|
 | Segmentation | Prithvi-EO-2.0-100M-TL + light decoder, fine-tuned (`himsat ml build-dataset`, `himsat ml train`): val mIoU 0.70 vs held-out weak labels | water, snow/ice, **debris-covered ice** (invisible to spectral rules) | physics rules |
 | Outline refinement | SAM (ViT-B) with box prompts, accepted only if IoU ≥ 0.6 with the coarse mask | sharper lake areas | coarse outlines |
-| Anomaly detection | statistical (watch cells, z-scores, cross-orbit confirmation) | what is unusual for *this* slope | – |
+| Anomaly detection | statistical (watch cells, InSAR series, z-scores, cross-orbit confirmation) | what is unusual for *this* slope | – |
 | Risk model | explainable evidence combination | why a site is red | – |
 | Alert wording | any open-weight LLM behind an OpenAI-compatible API (Ollama, vLLM, LM Studio, `himsat llm-serve`) | natural English text | validated templates |
 
@@ -111,8 +117,9 @@ check can catch, so **Nepali text comes from the reviewed templates by default**
 
 * **Hindcast of 26 Aug 2026:** see [the report](data/hindcasts/rasuwa-2026/report.md) and the summary below.
 * Sentinel-1 offset tracking + watch-cell stacking detects ≈ 2–5 cm/day of coherent motion over
-  ~1 km². Slower precursors (the published InSAR signal was ~10 mm/month) need interferometry
-  (ASF HyP3). That integration is on the roadmap.
+  ~1 km². Slower precursors (the published InSAR signal was ~10 mm/month) need the optional InSAR
+  step (`HIMSAT_INSAR_ENABLED`, free NASA Earthdata login). That step is implemented and unit-tested,
+  but it hasn't been run against live HyP3 jobs in this repository because it needs credentials.
 * Optical evidence (cracks, turbidity, lake outlines) is unavailable under monsoon cloud. Radar
   carries the monitoring then.
 * Arrival times assume a constant flood-front speed per hazard type, so they are indicative only.
