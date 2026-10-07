@@ -12,7 +12,14 @@ from datetime import datetime, timedelta
 from statistics import median
 from typing import Any
 
-from himsat.detect.cells import MIN_V, RATIO_FLOOR, SEASON_MIN_PAIRS, seasonal_window, weighted_mean
+from himsat.detect.cells import (
+    MIN_V,
+    RATIO_FLOOR,
+    SEASON_MIN_PAIRS,
+    seasonal_window,
+    speedup_test,
+    weighted_mean,
+)
 
 
 @dataclass
@@ -143,17 +150,20 @@ def ice_features(obs: list[Obs], as_of: datetime, cfg: dict, attrs: dict) -> tup
     recent = [o for o in vel if _in_window(o, as_of, 0, w["recent_days"])]
     base, seasonal = _baseline(vel, as_of, w)
     feats["velocity_seasonal_baseline"] = 1.0 if seasonal else 0.0
-    wr = weighted_mean([v_of(o) for o in recent], [se_of(o) for o in recent]) if recent else None
-    wb = (weighted_mean([v_of(o) for o in base], [se_of(o) for o in base])
-          if len(base) >= (SEASON_MIN_PAIRS if seasonal else w["velocity_min_baseline_pairs"]) else None)
+    enough_base = len(base) >= (SEASON_MIN_PAIRS if seasonal else w["velocity_min_baseline_pairs"])
+    test = (speedup_test([(v_of(o), se_of(o), o.observed_at) for o in recent],
+                         [(v_of(o), se_of(o), o.observed_at) for o in base])
+            if recent and enough_base else None)
+    wr = (test[0], test[1]) if test else (
+        weighted_mean([v_of(o) for o in recent], [se_of(o) for o in recent]) if recent else None)
+    wb = (test[2], test[3]) if test else None
     if wr is not None:
         v_now, se_now = wr
         feats["velocity_m_day"] = v_now
         if (attrs.get("mean_slope_deg") or 0) >= 25 and v_now > 3 * se_now:
             feats["velocity_steep_m_day"] = v_now
-        if wb is not None:
-            v_base, se_base = wb
-            z = (v_now - v_base) / math.hypot(se_now, se_base)
+        if test is not None:
+            v_base, z, floor = test[2], test[4], test[5]
             feats["velocity_z"] = z
             # a speed-up only counts when it is statistically significant and physically material
             significant = z >= w.get("velocity_min_z", 3.0) and v_now >= MIN_V
@@ -161,7 +171,7 @@ def ice_features(obs: list[Obs], as_of: datetime, cfg: dict, attrs: dict) -> tup
             # sustained acceleration: consecutive latest pairs individually above the baseline
             run = 0
             for o in reversed(vel):
-                if v_of(o) - v_base > 2 * se_of(o):
+                if v_of(o) - v_base > 2 * max(se_of(o), floor):
                     run += 1
                 else:
                     break
