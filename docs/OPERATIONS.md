@@ -91,8 +91,14 @@ downstream asset** lies inside their area.
   `himsat reassess <aoi> --hindcast <name>`.
 * Speed: the first run over a period downloads imagery (about 1–5 min per acquisition for a
   6-tile AOI). Later runs read the disk cache (`/data/cache`). Size it at roughly 1 GB per AOI-month.
+* Velocity baselines need history. A new deployment compares speeds with the recent past (30–150
+  days earlier) until it has a year of data. After that it uses the same season last year, which is
+  far more reliable in the melt season. To start a new AOI with that baseline, process the previous
+  season first: `python scripts/extend_hindcast_baseline.py` for hindcasts, or `himsat run <aoi> --no-dispatch
+  --start <one year ago>` for live monitoring.
 * Thresholds that most affect false alarms: `windows.velocity_min_z`, the watch-cell test in
-  `himsat/detect/cells.py` (z ≥ 3, ≥ 0.03 m/day, ≥ 2× baseline, ≥ 2 orbits), SAR change
+  `himsat/detect/cells.py` (z ≥ 3 against the site's measured noise floor, ≥ 0.05 m/day,
+  ≥ 2× baseline, ≥ 2 orbits), SAR change
   minimum area (`EVENT_MIN_AREA`, `ATTACH_MIN_AREA` in `pipeline/s1.py`), and `ALERT_MIN_DYNAMIC`.
 * Curated infrastructure coordinates in `data/assets/curated.geojson` are **approximate**.
   Replace them with surveyed coordinates from the operators.
