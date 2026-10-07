@@ -108,9 +108,13 @@ def build_report(aoi_id: str, db_url: str, start: datetime, end: datetime, event
     cfg = get_aoi(aoi_id)
     with session_scope(db_url) as s:
         sites = s.scalars(select(Site).where(Site.aoi_id == aoi_id)).all()
-        scenes = s.scalars(select(Scene).where(Scene.aoi_id == aoi_id).order_by(Scene.acquired_at)).all()
-        alerts = s.scalars(select(Alert).order_by(Alert.created_at)).all()
-        events = s.scalars(select(ChangeEvent).where(ChangeEvent.aoi_id == aoi_id)
+        scenes = s.scalars(select(Scene).where(Scene.aoi_id == aoi_id, Scene.acquired_at >= start,
+                                               Scene.acquired_at <= end).order_by(Scene.acquired_at)).all()
+        # the database may hold earlier seasons (baselines); the report covers the replay window only
+        alerts = s.scalars(select(Alert).where(Alert.issued_at >= start, Alert.issued_at <= end)
+                           .order_by(Alert.created_at)).all()
+        events = s.scalars(select(ChangeEvent).where(ChangeEvent.aoi_id == aoi_id, ChangeEvent.detected_at >= start,
+                                                     ChangeEvent.detected_at <= end)
                            .order_by(ChangeEvent.detected_at)).all()
         site_by_id = {x.id: x for x in sites}
 
@@ -129,7 +133,9 @@ def build_report(aoi_id: str, db_url: str, start: datetime, end: datetime, event
 
         site_rows = []
         for st in sites:
-            ras = s.scalars(select(RiskAssessment).where(RiskAssessment.site_id == st.id)
+            ras = s.scalars(select(RiskAssessment).where(RiskAssessment.site_id == st.id,
+                                                         RiskAssessment.assessed_at >= start,
+                                                         RiskAssessment.assessed_at <= end)
                             .order_by(RiskAssessment.assessed_at)).all()
             if not ras:
                 continue
@@ -179,15 +185,21 @@ def build_report(aoi_id: str, db_url: str, start: datetime, end: datetime, event
     }
 
 
-def summarize(sites: list[dict], alerts: list[dict], events: list[dict], event_time, focus: set[str]) -> dict:
-    """Headline evaluation: warning at the source before the event, alerts elsewhere, detection after."""
+def summarize(sites: list[dict], alerts: list[dict], events: list[dict], event_time, focus: set[str],
+              source_km: float = 2.0, warning_days: float = 30.0) -> dict:
+    """Headline evaluation.
+
+    A *warning* is a MEDIUM/HIGH alert for a site within ``source_km`` of the source issued in the
+    ``warning_days`` before the event. Every other pre-event alert counts as a potential false alarm.
+    """
     if event_time is None:
         return {"alerts": len(alerts)}
-    pre = [a for a in alerts if a["pre_event"]]
-    at_source = [a for a in pre if a["site"] in focus]
-    elsewhere = [a for a in pre if a["site"] not in focus]
+    near = {s["code"] for s in sites if s["distance_to_event_km"] is not None and s["distance_to_event_km"] <= source_km}
+    pre = [a for a in alerts if a["pre_event"] and a["kind"] != "all_clear"]
+    at_source = [a for a in pre if a["site"] in near and a["lead_time_h"] <= warning_days * 24]
+    elsewhere = [a for a in pre if a not in at_source]
     first = min(at_source, key=lambda a: a["available_at"]) if at_source else None
-    src_levels = [s["max_pre_event"]["level"] for s in sites if s["code"] in focus and s["max_pre_event"]]
+    src_levels = [s["max_pre_event"]["level"] for s in sites if s["code"] in near and s["max_pre_event"]]
     rank = {"low": 0, "medium": 1, "high": 2}
     post_mm = sorted([e for e in events if e["kind"] == "mass_movement" and e["confidence"] >= 0.7
                       and (e["distance_to_event_km"] or 99) <= 5 and _as_dt(e["at"]) > event_time],
@@ -241,9 +253,9 @@ def render_markdown(r: dict) -> str:
         L.append("## Summary\n")
         if sm["warned_before_event"]:
             L.append(f"- **Warned before the event:** yes, {sm['first_warning_level'].upper()} alert "
-                     f"{sm['first_warning_lead_time_h']:.1f} h ahead for a site within 5 km of the source.")
+                     f"{sm['first_warning_lead_time_h']:.1f} h ahead for a site within 2 km of the source (30-day window).")
         else:
-            L.append(f"- **Warned before the event:** no. Highest pre-event status near the source: "
+            L.append(f"- **Warned before the event:** no (no MEDIUM/HIGH alert within 2 km of the source in the 30 days before). Highest pre-event status within 2 km: "
                      f"{(sm['max_pre_event_level_near_source'] or 'not assessed').upper()}.")
         el = sm["pre_event_alerts_elsewhere_by_level"]
         L.append(f"- **Pre-event alerts elsewhere** (potential false alarms; MEDIUM alerts are held for review): "
