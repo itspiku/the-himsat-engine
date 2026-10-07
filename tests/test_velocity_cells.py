@@ -93,3 +93,18 @@ def test_anomaly_ignores_noise_and_single_orbit():
     a = anomaly(_rows(t, 0.005, 0.08, orbits=(19, 19, 19)), t)
     assert a is not None and not a.significant  # only one viewing geometry confirms
     assert anomaly(_rows(t, 0.3, 0.4), t).ratio < 2  # normal glacier seasonal speed-up
+
+
+def test_seasonal_baseline_cancels_normal_summer_speedup():
+    t = datetime(2026, 7, 15, tzinfo=UTC)
+    spring = [(t - timedelta(days=40 + 10 * k), 0.01, 0.02, (19, 85, 121)[k % 3]) for k in range(6)]
+    now = [(t - timedelta(days=2 + 4 * k), 0.12, 0.02, o) for k, o in enumerate((19, 85, 121))]
+    # without last year's data, a summer speed-up looks anomalous...
+    assert anomaly(spring + now, t).significant
+    # ...but the same glacier moved just as fast last summer: no anomaly
+    last_summer = [(t - timedelta(days=365 + d), 0.11, 0.02, o) for d, o in ((-10, 19), (0, 85), (10, 121))]
+    a = anomaly(spring + now + last_summer, t)
+    assert a is not None and not a.significant and abs(a.v_base - 0.11) < 0.01
+    # a slope that was quiet last summer and is fast now is still flagged
+    quiet_last = [(t - timedelta(days=365 + d), 0.01, 0.02, o) for d, o in ((-10, 19), (0, 85), (10, 121))]
+    assert anomaly(spring + now + quiet_last, t).significant

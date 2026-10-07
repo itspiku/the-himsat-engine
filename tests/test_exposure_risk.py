@@ -127,3 +127,19 @@ def test_radar_lake_area_far_below_outline_is_ignored(t0):
     obs = [s1(50, 1_480_000), s1(40, 1_500_000), s1(3, 60_000), s1(5, 1_520_000)]
     f, _ = lake_features(obs, t0, cfg, {})
     assert abs(f["lake_growth_recent_pct"]) < 5  # the 0.06 km² wind artefact does not count
+
+
+def test_ice_features_prefer_same_season_baseline(t0):
+    cfg = load_risk_config()
+
+    def obs(days, v, se=0.015):
+        return Obs("velocity", "S1", t0 - timedelta(days=days), {"v_down_median": v, "v_down_se": se,
+                                                                  "coverage": 1, "n_points": 50}, 1.0)
+
+    spring = [obs(d, 0.01) for d in range(40, 140, 12)]
+    now = [obs(2, 0.12), obs(6, 0.11), obs(10, 0.12)]
+    last_year = [obs(365 + d, 0.115) for d in (-12, 0, 12)]
+    f, _ = ice_features(spring + now + last_year, t0, cfg, {"mean_slope_deg": 30})
+    assert f["velocity_seasonal_baseline"] == 1.0 and f["velocity_ratio"] == 1.0
+    f2, _ = ice_features(spring + now, t0, cfg, {"mean_slope_deg": 30})
+    assert f2["velocity_seasonal_baseline"] == 0.0 and f2["velocity_ratio"] > 3
