@@ -92,12 +92,15 @@ def run(aoi_id: str,
         start: str = typer.Option(None, help="ISO date; default: since last processed scene"),
         end: str = typer.Option(None, help="ISO date; default: now"),
         no_dispatch: bool = typer.Option(False, "--no-dispatch", help="create alerts but never send them"),
-        sensors: str = typer.Option("S1,S2", help="comma list: S1,S2")) -> None:
+        sensors: str = typer.Option("S1,S2", help="comma list: S1,S2"),
+        backfill: bool = typer.Option(False, "--backfill",
+                                      help="load history: alerts timed as when data arrived, never sent")) -> None:
     """Run one monitoring cycle for an AOI."""
     from himsat.pipeline.monitor import CycleOptions, run_cycle
 
     opts = CycleOptions(start=parse_date(start) if start else None, end=parse_date(end) if end else None,
-                        dispatch=not no_dispatch, sensors=tuple(s.strip().upper() for s in sensors.split(",")),
+                        dispatch=not (no_dispatch or backfill), backfill=backfill,
+                        sensors=tuple(s.strip().upper() for s in sensors.split(",")),
                         progress=lambda m: console.print(m))
     res = run_cycle(aoi_id, opts)
     console.print(f"[bold]done[/] {res.stats}")
@@ -161,7 +164,14 @@ def reassess(aoi_id: str, hindcast_name: str = typer.Option(None, "--hindcast", 
     from himsat.pipeline.hindcast import reassess as _reassess
 
     if not hindcast_name:
-        raise typer.BadParameter("only --hindcast databases can be reassessed from the CLI")
+        # live database: allowed only while nothing has been sent (e.g. after a --backfill)
+        try:
+            res = _reassess(aoi_id, get_settings().database_url, hindcast=True, guard_dispatched=True,
+                            progress=lambda m: None)
+        except RuntimeError as e:
+            raise typer.BadParameter(str(e)) from e
+        console.print(f"reassessed {res['times']} acquisition times, {res['alerts']} alerts")
+        return
     d = hindcast_dir(hindcast_name)
     db_url = f"sqlite:///{(d / 'himsat.db').as_posix()}"
     res = _reassess(aoi_id, db_url, hindcast=True, progress=lambda m: None)
