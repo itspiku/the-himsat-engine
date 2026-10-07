@@ -125,6 +125,11 @@ export interface HindcastReport {
     body_ne: string;
   }[];
   change_events: { kind: string; at: string; lon: number; lat: number; area_km2: number; confidence: number }[];
+  summary?: {
+    warned_before_event: boolean; first_warning_lead_time_h: number | null; first_warning_level: string | null;
+    max_pre_event_level_near_source: string | null; pre_event_alerts_elsewhere: number;
+    pre_event_alerts_elsewhere_by_level: { medium: number; high: number }; post_event_detection_h: number | null;
+  };
 }
 
 export class ApiError extends Error {

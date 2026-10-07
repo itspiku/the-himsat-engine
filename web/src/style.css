@@ -184,3 +184,5 @@ button.link { background: none; border: 0; padding: 0; color: var(--accent); fon
 .chart-data table { max-height: 200px; display: block; overflow-y: auto; }
 .row-form { flex-direction: row; align-items: center; }
 .row-form select { flex: 1; }
+.evaluation { background: var(--surface-2); border-radius: var(--radius); padding: 4px 12px 10px; margin-top: 10px; }
+.evaluation li { margin: 6px 0; }

@@ -411,6 +411,11 @@ function renderHindcast(): void {
       <output>${fmtTime(new Date(now).toISOString())}${ev ? ` <span class="${now < ev ? "pre" : "post"}">${now < ev ? t("beforeEvent") : t("afterEvent")}</span>` : ""}</output>
     </div>
     <section class="tiles">${(["high", "medium", "low"] as const).map((l) => `<div class="tile">${levelBadge(l)}<b>${num(counts[l] ?? 0)}</b></div>`).join("")}</section>
+    ${r.summary && ev ? `<section class="evaluation"><h3>${t("evaluation")}</h3><ul class="plain">
+      <li>${r.summary.warned_before_event ? `✔ <b>${t("warnedYes")}</b>: ${levelBadge(r.summary.first_warning_level ?? "medium")} ${num(r.summary.first_warning_lead_time_h ?? 0, 1)} ${t("hoursBefore")}` : `✖ ${t("warnedNo")}`}</li>
+      <li>${t("otherAlerts")}: <b>${num(r.summary.pre_event_alerts_elsewhere)}</b> (${levelBadge("high")} ${num(r.summary.pre_event_alerts_elsewhere_by_level.high)} · ${levelBadge("medium")} ${num(r.summary.pre_event_alerts_elsewhere_by_level.medium)})</li>
+      ${r.summary.post_event_detection_h !== null ? `<li>${t("detectedAfter")}: ${num(r.summary.post_event_detection_h)} ${t("hoursAfter")}</li>` : ""}
+    </ul></section>` : ""}
     <p class="muted">${num(r.scenes.S1)} Sentinel-1 · ${num(r.scenes.S2)} Sentinel-2${ev ? ` · ${t("alerts")} ${t("beforeEvent")}: ${num(before.length)}` : ""}</p>
     <section><h2>${t("alerts")}</h2>
       ${issued.length ? issued.slice(-12).reverse().map((a) => `<article class="alert" style="--lv:${LEVEL_COLOR[a.level]}">
