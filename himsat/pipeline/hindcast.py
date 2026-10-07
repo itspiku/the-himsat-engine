@@ -71,14 +71,14 @@ def save_report(d: Path, report: dict) -> Path:
 
 
 def reassess(aoi_id: str, db_url: str, *, hindcast: bool = True, data_latency: timedelta = timedelta(hours=6),
-             progress=None) -> dict:
+             guard_dispatched: bool = False, progress=None) -> dict:
     """Re-run the risk model and alert policy over stored observations, without reprocessing imagery.
 
     Use this after changing ``config/risk.yaml`` or the feature logic. Assessments and alerts are
     rebuilt in time order, exactly as they would have been issued. Only safe for hindcast/scratch
     databases (``hindcast=True``) or before any alert has been dispatched.
     """
-    from sqlalchemy import delete
+    from sqlalchemy import delete, update
 
     from himsat.alerts.llm import LLMClient
     from himsat.db.models import Delivery, RiskAssessment
@@ -92,11 +92,15 @@ def reassess(aoi_id: str, db_url: str, *, hindcast: bool = True, data_latency: t
     ctx = AOIContext(cfg, settings)
     assessor = Assessor(ctx, settings, LLMClient.from_settings(settings), dispatch=not hindcast)
     with session_scope(db_url) as s:
-        if not hindcast and s.scalar(select(Alert.id).where(Alert.status == "dispatched").limit(1)):
+        if (guard_dispatched or not hindcast) and s.scalar(
+                select(Alert.id).where(Alert.status == "dispatched").limit(1)):
             raise RuntimeError("refusing to rebuild alerts in a database with dispatched alerts")
-        s.execute(delete(Delivery))
-        s.execute(delete(Alert))
-        s.execute(delete(RiskAssessment))
+        aoi_sites = select(Site.id).where(Site.aoi_id == aoi_id)
+        aoi_alerts = select(Alert.id).where(Alert.site_id.in_(aoi_sites))
+        s.execute(delete(Delivery).where(Delivery.alert_id.in_(aoi_alerts)))
+        s.execute(update(Alert).where(Alert.supersedes_id.in_(aoi_alerts)).values(supersedes_id=None))
+        s.execute(delete(Alert).where(Alert.site_id.in_(aoi_sites)))
+        s.execute(delete(RiskAssessment).where(RiskAssessment.site_id.in_(aoi_sites)))
         for site in s.scalars(select(Site).where(Site.aoi_id == aoi_id)):
             site.latest_level, site.latest_score, site.latest_assessed_at = "unknown", None, None
         times = sorted({t for (t,) in s.execute(select(Scene.acquired_at).where(
