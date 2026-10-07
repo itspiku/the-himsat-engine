@@ -110,6 +110,35 @@ SEASON_HALF_DAYS = 30  # same-season baseline: ±30 days around the date one yea
 SEASON_MIN_PAIRS = 2
 
 
+def robust_sd(vs: list[float]) -> float:
+    v = np.asarray(vs, float)
+    return float(1.4826 * np.median(np.abs(v - np.median(v)))) if v.size else 0.0
+
+
+def _stack(rows: list[tuple[float, float, object]], floor: float) -> tuple[float, float] | None:
+    m = weighted_mean([r[0] for r in rows], [max(r[1], floor) for r in rows])
+    if m is None:
+        return None
+    # pairs that share an acquisition share its errors: count acquisitions, not pairs
+    n_acq = len({r[2] for r in rows})
+    return m[0], m[1] * math.sqrt(len(rows) / n_acq)
+
+
+def speedup_test(recent: list[tuple[float, float, object]], base: list[tuple[float, float, object]],
+                 min_floor_n: int = 4) -> tuple[float, float, float, float, float, float] | None:
+    """Recent vs baseline velocity: rows are (v, formal SE, acquisition key).
+
+    Formal offset-tracking errors miss snow, decorrelation and orbit effects. The baseline's own
+    scatter (robust SD) is how repeatable a measurement at this place really is, so no pair may
+    claim to be more precise than that. Returns (v_now, se_now, v_base, se_base, z, noise floor).
+    """
+    floor = robust_sd([b[0] for b in base]) if len(base) >= min_floor_n else 0.0
+    r, b = _stack(recent, floor), _stack(base, floor)
+    if r is None or b is None:
+        return None
+    return r[0], r[1], b[0], b[1], (r[0] - b[0]) / math.hypot(r[1], b[1]), floor
+
+
 @dataclass
 class Anomaly:
     v_recent: float
@@ -147,12 +176,10 @@ def anomaly(rows: list[tuple[datetime, float, float, int | None]], t: datetime, 
         base = [r for r in rows if t - timedelta(days=base_days[1]) <= r[0] <= t - timedelta(days=base_days[0])]
     if len(rec) < 2 or len(base) < min(min_base, SEASON_MIN_PAIRS) or not base:
         return None
-    wr = weighted_mean([r[1] for r in rec], [r[2] for r in rec])
-    wb = weighted_mean([r[1] for r in base], [r[2] for r in base])
-    if wr is None or wb is None:
+    test = speedup_test([(r[1], r[2], r[0]) for r in rec], [(r[1], r[2], r[0]) for r in base])
+    if test is None:
         return None
-    (vr, sr), (vb, sb) = wr, wb
-    z = (vr - vb) / math.hypot(sr, sb)
+    vr, sr, vb, sb, z, floor = test
     ratio = vr / max(vb, RATIO_FLOOR)
-    confirming = {r[3] for r in rec if r[1] - vb > r[2]}
+    confirming = {r[3] for r in rec if r[1] - vb > max(r[2], floor)}
     return Anomaly(vr, sr, vb, sb, z, ratio, len(rec), len(confirming))
