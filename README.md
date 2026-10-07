@@ -115,7 +115,42 @@ check can catch, so **Nepali text comes from the reviewed templates by default**
 
 ## Validation & limitations
 
-* **Hindcast of 26 Aug 2026:** see [the report](data/hindcasts/rasuwa-2026/report.md) and the summary below.
+### Hindcast of the 26 August 2026 Lhende Khola event
+
+The unchanged live pipeline was replayed over 1 Mar – 10 Sep 2026: 44 Sentinel-1 and 72 Sentinel-2
+acquisitions, plus 38 Sentinel-1 acquisitions from May–Oct 2025 for the same-season baseline. Full
+report: [data/hindcasts/rasuwa-2026/report.md](data/hindcasts/rasuwa-2026/report.md). The map's
+**Hindcast** tab replays it.
+
+| Question | Result (risk model `2026.10-7`) |
+|---|---|
+| Warning before the event? | **No.** No MEDIUM/HIGH alert within 2 km of the source in the 30 days before. The highest pre-event status there was LOW. |
+| False alarms | **2** pre-event alerts elsewhere in six months (1 HIGH, 1 MEDIUM, both on Lirung Glacier in the Langtang valley, a different catchment, unverified). Over the quiet 2025 season (May–Oct), 2 MEDIUM alerts. |
+| Detection after the event | Confident radar mass-movement detection near the source **26 h** after the event. Post-event MEDIUM alerts followed for the lakes and the landslide downstream. |
+
+What the replay taught us. Each row is a model version that we built, measured and revised:
+
+| Velocity baseline | Warning near source | Pre-event alerts elsewhere |
+|---|---|---|
+| Spring (30–150 days earlier) | MEDIUM, 44.6 h ahead (G0049) | 16 (4 HIGH) |
+| Same season 2025 | none | 15 (4 HIGH) |
+| Same season 2025 + measured noise floor (current) | none | 2 (1 HIGH) |
+
+The apparent 44.6-hour warning was **not a precursor**. G0049 moved at ≈ 0.05 m/day in
+August 2026, the same as in August 2025. Against a spring baseline, that ordinary summer speed-up
+looked like acceleration, so the "warning" would have been raised every summer. Most of the other
+false alarms came from per-pair error estimates that understate the real scatter of offset tracking
+(snow, decorrelation, orbit effects). The current model uses each site's own measured repeatability
+as its noise floor.
+
+**Conclusion:** Sentinel-1 offset tracking (detection limit ≈ 2–5 cm/day over ~1 km²) did not see a
+precursor to this collapse. The published precursor signal was ~10 mm/month creep, about 100× slower,
+and only interferometry measures that. HimSat's value for events like this one rests on the
+**InSAR step** (implemented, needs a NASA Earthdata login) and on fast post-event detection and
+downstream warning. Offset tracking remains useful for surges and fast slope failures.
+
+### Limitations
+
 * Sentinel-1 offset tracking + watch-cell stacking detects ≈ 2–5 cm/day of coherent motion over
   ~1 km². Slower precursors (the published InSAR signal was ~10 mm/month) need the optional InSAR
   step (`HIMSAT_INSAR_ENABLED`, free NASA Earthdata login). That step is implemented and unit-tested,
