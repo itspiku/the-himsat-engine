@@ -14,7 +14,7 @@
 # susceptibility (a large lake touching a glacier under steep walls) is capped at about
 # "medium": only observed change (growth, acceleration, fractures, fresh scars) raises a site to "high".
 
-model_version: "2026.10-6"
+model_version: "2026.10-7"
 
 levels:
   high: 0.60
