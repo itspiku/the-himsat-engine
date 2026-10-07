@@ -157,7 +157,7 @@ def reassess(aoi_id: str, hindcast_name: str = typer.Option(None, "--hindcast", 
              event_time: str = typer.Option(None), event_lon: float = typer.Option(None),
              event_lat: float = typer.Option(None)) -> None:
     """Re-run the risk model + alert policy over stored observations (after tuning risk.yaml)."""
-    from himsat.pipeline.hindcast import build_report, hindcast_dir, render_markdown
+    from himsat.pipeline.hindcast import build_report, hindcast_dir, save_report
     from himsat.pipeline.hindcast import reassess as _reassess
 
     if not hindcast_name:
@@ -171,8 +171,7 @@ def reassess(aoi_id: str, hindcast_name: str = typer.Option(None, "--hindcast", 
     period = old.get("period") or [None, None]
     report = build_report(aoi_id, db_url, parse_date(period[0]) if period[0] else datetime.now(UTC),
                           parse_date(period[1]) if period[1] else datetime.now(UTC), ev_t, ev_ll)
-    (d / "report.json").write_text(json.dumps(report, ensure_ascii=False, indent=1, default=str), encoding="utf-8")
-    (d / "report.md").write_text(render_markdown(report), encoding="utf-8")
+    save_report(d, report)
     console.print(f"reassessed {res['times']} acquisition times, {res['alerts']} alerts -> {d / 'report.md'}")
 
 

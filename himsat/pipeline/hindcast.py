@@ -48,7 +48,24 @@ def run_hindcast(aoi_id: str, start: datetime, end: datetime, event_time: dateti
     if not report_only:
         run_cycle(aoi_id, opts, db_url=db_url, settings=settings)
     report = build_report(aoi_id, db_url, start, end, event_time, event_lonlat)
-    (d / "report.json").write_text(json.dumps(report, ensure_ascii=False, indent=1, default=str), encoding="utf-8")
+    return save_report(d, report)
+
+
+def _rounded(x, nd: int = 5):
+    """Floats to 5 decimals (~1 m in degrees, 0.01 mm/day in velocity): a much smaller report."""
+    if isinstance(x, float):
+        return round(x, nd)
+    if isinstance(x, dict):
+        return {k: _rounded(v, nd) for k, v in x.items()}
+    if isinstance(x, list | tuple):
+        return [_rounded(v, nd) for v in x]
+    return x
+
+
+def save_report(d: Path, report: dict) -> Path:
+    d.mkdir(parents=True, exist_ok=True)
+    (d / "report.json").write_text(json.dumps(_rounded(report), ensure_ascii=False, separators=(",", ":"), default=str),
+                                   encoding="utf-8")
     (d / "report.md").write_text(render_markdown(report), encoding="utf-8")
     return d / "report.md"
 
@@ -99,6 +116,16 @@ def reassess(aoi_id: str, db_url: str, *, hindcast: bool = True, data_latency: t
     return {"times": len(times), "alerts": n_alerts}
 
 
+def _simplified(geojson: str | None, tol_deg: float = 1e-4) -> dict | None:
+    """Flow paths are traced at DEM resolution; ~10 m simplification is invisible on the map."""
+    g = from_geojson(geojson)
+    if g is None:
+        return None
+    from shapely.geometry import mapping
+
+    return mapping(g.simplify(tol_deg, preserve_topology=False))
+
+
 def _km(lon1, lat1, lon2, lat2) -> float:
     return math.hypot((lon1 - lon2) * 111.32 * math.cos(math.radians(lat1)), (lat1 - lat2) * 110.57)
 
@@ -139,7 +166,8 @@ def build_report(aoi_id: str, db_url: str, start: datetime, end: datetime, event
                             .order_by(RiskAssessment.assessed_at)).all()
             if not ras:
                 continue
-            obs = s.scalars(select(Observation).where(Observation.site_id == st.id)
+            obs = s.scalars(select(Observation).where(Observation.site_id == st.id, Observation.observed_at >= start,
+                                                      Observation.observed_at <= end)
                             .order_by(Observation.observed_at)).all()
             pre = [r for r in ras if not event_time or r.assessed_at < event_time]
             max_pre = max(pre, key=lambda r: r.score) if pre else None
@@ -148,7 +176,7 @@ def build_report(aoi_id: str, db_url: str, start: datetime, end: datetime, event
                 "lon": st.lon, "lat": st.lat, "elevation_m": st.elevation_m, "source": st.source,
                 "first_seen": st.first_seen, "distance_to_event_km": rel(st),
                 "geometry": json.loads(st.geom) if st.geom else None,
-                "flow_path": json.loads(st.flow_path) if st.flow_path else None,
+                "flow_path": _simplified(st.flow_path),
                 "max_pre_event": ({"level": max_pre.level, "score": max_pre.score, "at": max_pre.assessed_at,
                                    "reasons": max_pre.reasons} if max_pre else None),
                 "timeline": [{"at": r.assessed_at, "level": r.level, "score": r.score, "hazard": r.hazard,
