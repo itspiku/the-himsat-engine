@@ -14,7 +14,7 @@
 # susceptibility (a large lake touching a glacier under steep walls) is capped at about
 # "medium": only observed change (growth, acceleration, fractures, fresh scars) raises a site to "high".
 
-model_version: "2026.10-5"
+model_version: "2026.10-6"
 
 levels:
   high: 0.60
@@ -70,7 +70,10 @@ indicators:
   velocity_ratio:         {x: [1.5, 4.0],   w: 0.70, kinds: [glacier, slope]}   # recent / baseline speed
   velocity_steep_m_day:   {x: [0.3, 2.0],   w: 0.40, kinds: [glacier, slope]}   # fast ice on steep ground
   velocity_trend:         {x: [2, 4],       w: 0.30, kinds: [glacier, slope]}   # consecutive speed-ups
-  new_fractures_m:        {x: [100, 1000],  w: 0.50, kinds: [glacier, slope]}
+  # Optical "new crack" length is recorded and shown, but carries no weight: in the 2026 Rasuwa
+  # hindcast it produced 113 false glacier alerts in spring (snow melt-out exposing crevasses,
+  # illumination changes). Re-enable only with a validated detector (e.g. sub-metre imagery).
+  new_fractures_m:        {x: [100, 1000],  w: 0.00, kinds: [glacier, slope]}
   sar_change_km2:         {x: [0.10, 0.60], w: 0.50, kinds: [glacier, slope, glacial_lake]}  # cross-orbit confirmed only
   source_slope_deg:       {x: [25, 40],     w: 0.20, kinds: [glacier, slope]}
   # InSAR (optional HyP3 products): mm-scale line-of-sight motion and its significance-gated speed-up
