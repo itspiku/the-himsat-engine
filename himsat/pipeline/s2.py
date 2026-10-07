@@ -75,6 +75,7 @@ def _process_s2_tile(session: Session, ctx: AOIContext, acq: Acquisition, segmen
     lakes = extract_lakes(seg, tile.grid, st.dem, st.slope, min_area_m2=ctx.cfg.min_lake_area_m2,
                           min_elevation_m=0.0, tile=tile, turbidity=turb, ice_mask=ice)
     inv_dist = (ndimage.distance_transform_edt(~st.glacier) * tile.grid.res) if st.glacier.any() else None
+    comp_before = None
     for lk in lakes:
         # below the glacial-lake elevation only lakes close to *inventoried* glaciers count
         # (seasonal snow would otherwise make every valley pond "glacial")
@@ -83,6 +84,11 @@ def _process_s2_tile(session: Session, ctx: AOIContext, acq: Acquisition, segmen
             r, c = tile.grid.lonlat_rowcol(lk.lon, lk.lat)
             near_inv = tile.grid.contains_rc(r, c) and inv_dist[r, c] < 1000
         glacial = lk.elevation_m >= ctx.cfg.min_glacial_lake_elevation_m or near_inv
+        if not glacial:  # only needed for the landslide-dammed-lake test
+            if comp_before is None:
+                comp_before = ctx.load_composite(tile, COMPOSITE_BANDS) or {}
+            lake_px = rasterize([lk.geom_lonlat], tile.grid)
+            lk.attrs["was_dry_land"] = _was_dry_land(comp_before or None, lake_px)
         site = _record_lake(session, ctx, lk, acq, seg.method, glacial, named_places)
         if site is not None:
             touched.add(site.id)
@@ -100,7 +106,8 @@ def _record_lake(session: Session, ctx: AOIContext, lk: LakeDetection, acq: Acqu
         # only create sites from confident, fully observed detections
         if lk.quality < 0.9 or lk.mean_prob < 0.5:
             return None
-        barrier = _near_recent_mass_movement(session, ctx, lk, acq.datetime)
+        barrier = (lk.attrs.get("was_dry_land", False)
+                   and _near_recent_mass_movement(session, ctx, lk, acq.datetime))
         if not glacial and not barrier:
             return None
         if not barrier and lk.attrs.get("elev_range_m", 0) > MAX_LAKE_ELEV_RANGE_M:
@@ -143,7 +150,22 @@ def _near_recent_mass_movement(session: Session, ctx: AOIContext, lk: LakeDetect
                                   ChangeEvent.detected_at <= when, ChangeEvent.confidence >= 0.6,
                                   ChangeEvent.lon.between(lk.lon - radius_deg, lk.lon + radius_deg),
                                   ChangeEvent.lat.between(lk.lat - radius_deg, lk.lat + radius_deg))
-    return session.scalars(q).first() is not None
+    # only cross-orbit-confirmed mass movements (see pipeline.s1) can dam a river
+    return any((e.attrs or {}).get("confirmed_by") for e in session.scalars(q))
+
+
+def _was_dry_land(comp: dict | None, lake_mask: np.ndarray) -> bool:
+    """True if the latest clear pre-scene observation showed land (not water) where the lake now is."""
+    if comp is None or not lake_mask.any():
+        return False  # unknown history: never assume a lake is new
+    seen = lake_mask & (comp["day"] >= 0)
+    if seen.sum() < 0.7 * lake_mask.sum():
+        return False
+    g, n = comp["B03"][seen].astype("float32"), comp["B08"][seen].astype("float32")
+    with np.errstate(divide="ignore", invalid="ignore"):
+        ndwi = (g - n) / (g + n)
+    dry = (ndwi < 0.0) & (n > 0.08)
+    return float(dry.mean()) >= 0.7
 
 
 def _update_composite(ctx: AOIContext, tile: Tile, when: datetime, bands: dict, valid: np.ndarray) -> None:

@@ -121,3 +121,18 @@ def test_wet_snow_darkening_is_flagged_but_avalanche_is_not():
     regions = detect_sar_changes(pre, post, g, dem, slope, min_area_m2=20000, max_disturbed_fraction=0.5)
     by_sign = {r.mean_change > 0: r for r in regions}
     assert by_sign[False].attrs["snow_like"] and not by_sign[True].attrs["snow_like"]
+
+
+def test_barrier_lake_requires_previously_dry_ground():
+    from himsat.pipeline.s2 import _was_dry_land
+
+    lake = np.zeros((50, 50), bool)
+    lake[10:30, 10:30] = True
+    comp = {"day": np.full((50, 50), 4000, "int32"),
+            "B03": np.full((50, 50), 0.10, "float16"), "B08": np.full((50, 50), 0.25, "float16")}
+    assert _was_dry_land(comp, lake)  # vegetated valley floor before → a new lake
+    comp["B08"][lake] = 0.02  # it was already water → an existing pond, not a barrier lake
+    assert not _was_dry_land(comp, lake)
+    comp["day"][lake] = -1
+    assert not _was_dry_land(comp, lake)  # never observed → unknown, not assumed new
+    assert not _was_dry_land(None, lake)
