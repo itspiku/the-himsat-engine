@@ -1,9 +1,10 @@
+import math
 from datetime import UTC, datetime, timedelta
 
 import numpy as np
 from scipy import ndimage
 
-from himsat.detect.cells import anomaly, cell_stats, weighted_mean
+from himsat.detect.cells import anomaly, cell_stats, robust_sd, speedup_test, weighted_mean
 from himsat.detect.velocity import correct_stable_ground, downslope, offset_tracking, summarize_region
 from himsat.geo.grid import Grid, iter_tiles
 
@@ -108,3 +109,22 @@ def test_seasonal_baseline_cancels_normal_summer_speedup():
     # a slope that was quiet last summer and is fast now is still flagged
     quiet_last = [(t - timedelta(days=365 + d), 0.01, 0.02, o) for d, o in ((-10, 19), (0, 85), (10, 121))]
     assert anomaly(spring + now + quiet_last, t).significant
+
+
+def test_noise_floor_uses_baseline_repeatability():
+    rng = np.random.default_rng(3)
+    t0 = datetime(2025, 6, 1, tzinfo=UTC)
+    # last year's measurements scatter by ~0.1 m/day although each claims ±0.03
+    base = [(float(v), 0.03, t0 + timedelta(days=4 * k)) for k, v in enumerate(rng.normal(0.03, 0.1, 15))]
+    assert 0.06 < robust_sd([b[0] for b in base]) < 0.16
+    now = t0 + timedelta(days=365)
+    # three pairs ending on one acquisition, a typical noisy 0.2 m/day reading
+    bump = [(0.25, 0.03, now), (0.21, 0.03, now), (0.14, 0.03, now)]
+    v, se, vb, sb, z, floor = speedup_test(bump, base)
+    assert floor > 0.06 and z < 3  # not significant once the real scatter is used
+    # with formal errors alone the same bump would look like a strong anomaly
+    naive = (v - vb) / math.hypot(*(weighted_mean([b[0] for b in x], [b[1] for b in x])[1] for x in (bump, base)))
+    assert naive > 3
+    # a real surge across several acquisitions is still detected
+    surge = [(1.2, 0.05, now - timedelta(days=d)) for d in (0, 0, 5, 5, 12)]
+    assert speedup_test(surge, base)[4] > 6
