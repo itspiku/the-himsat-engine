@@ -12,6 +12,9 @@ that produced them.
 - Same-season velocity baselines. Glacier and slope speeds are compared with the same ±30 days one
   year earlier, so normal summer speed-ups are not flagged as acceleration.
 - `scripts/extend_hindcast_baseline.py`, which adds an earlier radar season to an existing hindcast.
+- Final Rasuwa hindcast with a 2025 baseline season: no precursor was detectable by offset tracking.
+  The earlier apparent warning was a normal summer speed-up. Radar detected the event 26 h after it
+  happened. See the README.
 - An evaluation summary in hindcast reports and in the replay view: whether there was a warning near
   the source, the lead time, alerts elsewhere and post-event detection time.
 - Optional InSAR (ASF HyP3) line-of-sight velocities for mm-scale creep.
@@ -21,6 +24,9 @@ that produced them.
 - nginx and systemd deployment examples, plus a contributing guide and security policy.
 
 ### Changed
+- Velocity significance tests use each site's measured repeatability as a noise floor and count
+  independent acquisitions instead of pairs (risk model `2026.10-7`). In the Rasuwa hindcast this cut
+  pre-event false alarms from 15 to 2.
 - Fast velocity hotspots need cross-orbit confirmation and good correlation.
 - Barrier-lake detection needs a confirmed mass movement and ground that was dry before.
 - Radar lake areas are ignored when the known outline no longer looks like water (wind, ice cover).
