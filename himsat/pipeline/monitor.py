@@ -50,9 +50,19 @@ class CycleOptions:
     sensors: tuple[str, ...] = ("S1", "S2", "INSAR")  # INSAR runs only if settings.insar_enabled
     data_latency: timedelta = timedelta(hours=6)  # hindcast: when results would have been available
     hindcast: bool = False
+    backfill: bool = False  # loading history into the live database: hindcast timing, never dispatch
     min_glacier_km2: float = 0.5
     progress: object | None = None  # callable(msg)
     products_dir: Path | None = None  # hindcasts keep their own composites / velocity fields
+
+    @property
+    def replay(self) -> bool:
+        """Results are timestamped when they would have been available, not now."""
+        return self.hindcast or self.backfill
+
+    @property
+    def kind(self) -> str:
+        return "hindcast" if self.hindcast else "backfill" if self.backfill else "monitor"
 
 
 @dataclass
@@ -124,7 +134,7 @@ def run_insar(ctx: AOIContext, db_url: str | None, start: datetime, end: datetim
             session.add(Scene(aoi_id=cfg.id, sensor="INSAR", key=prod.key, acquired_at=prod.sec_time,
                               platform="S1", status="processed", stats={"site_obs": n}, processed_at=utcnow(),
                               item_ids=[prod.path.name]))
-            now = prod.sec_time + opts.data_latency if opts.hindcast else utcnow()
+            now = prod.sec_time + opts.data_latency if opts.replay else utcnow()
             for sid in sorted(touched):
                 _, alert = assessor.assess(session, session.get(Site, sid), as_of=prod.sec_time, now=now)
                 if alert is not None:
@@ -153,12 +163,12 @@ def run_cycle(aoi_id: str, opts: CycleOptions | None = None, db_url: str | None 
     ctx = AOIContext(cfg, settings, products_dir=opts.products_dir)
     segmenter = get_segmenter(settings)
     llm = LLMClient.from_settings(settings)
-    assessor = Assessor(ctx, settings, llm, dispatch=opts.dispatch and not opts.hindcast)
+    assessor = Assessor(ctx, settings, llm, dispatch=opts.dispatch and not opts.replay)
     res = CycleResult()
     say = opts.progress or (lambda m: log.info(m))
 
     with session_scope(db_url) as session:
-        run = PipelineRun(aoi_id=cfg.id, kind="hindcast" if opts.hindcast else "monitor")
+        run = PipelineRun(aoi_id=cfg.id, kind=opts.kind)
         session.add(run)
         inv.ensure_aoi(session, cfg)
         n_assets = inv.sync_assets(session, cfg)
@@ -213,7 +223,7 @@ def run_cycle(aoi_id: str, opts: CycleOptions | None = None, db_url: str | None 
                                                         Scene.key == acq.key)).one()
             scene.status = "processed" if stats.get("tiles") else "skipped"
             scene.stats, scene.processed_at = stats, utcnow()
-            now = acq.datetime + opts.data_latency if opts.hindcast else utcnow()
+            now = acq.datetime + opts.data_latency if opts.replay else utcnow()
             for sid in sorted(touched):
                 site = session.get(Site, sid)
                 _, alert = assessor.assess(session, site, as_of=acq.datetime, now=now)

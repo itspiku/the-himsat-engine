@@ -44,7 +44,7 @@ def health(db: Session = Depends(get_db), settings: Settings = Depends(get_setti
     db.execute(select(1))
     now = datetime.now(UTC)
     last = db.scalar(select(PipelineRun).order_by(PipelineRun.started_at.desc()).limit(1))
-    last_ok = db.scalar(select(func.max(PipelineRun.finished_at)).where(PipelineRun.kind == "monitor",
+    last_ok = db.scalar(select(func.max(PipelineRun.finished_at)).where(PipelineRun.kind.in_(("monitor", "backfill")),
                                                                         PipelineRun.status.in_(("ok", "partial"))))
     max_age = timedelta(minutes=2 * settings.schedule_interval_minutes)
     stale = last_ok is None or now - last_ok > max_age
